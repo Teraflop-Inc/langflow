@@ -4,6 +4,7 @@ from .video_embeddings import TwelveLabsVideoEmbeddingsComponent
 from .text_embeddings import TwelveLabsTextEmbeddingsComponent
 from .split_video import SplitVideoComponent
 from .pegasus_index import PegasusIndexVideo
+from .convert_astra_results import ConvertAstraToTwelveLabs
 
 __all__ = [
     "VideoFile",
@@ -12,4 +13,5 @@ __all__ = [
     "TwelveLabsVideoEmbeddingsComponent",
     "SplitVideoComponent",
     "PegasusIndexVideo",
+    "ConvertAstraToTwelveLabs",
 ]
