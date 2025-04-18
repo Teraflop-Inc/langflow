@@ -35,13 +35,13 @@ class TwelveLabsPegasus(Component):
             display_name="Pegasus Video ID",
             info="Enter a Video ID for a previously indexed video.",
         ),
-        StrInput(
+        MessageInput(
             name="index_name",
             display_name="Index Name",
             info="Name of the index to use. If the index doesn't exist, it will be created.",
             required=False
         ),
-        StrInput(
+        MessageInput(
             name="index_id",
             display_name="Index ID",
             info="ID of an existing index to use. If provided, index_name will be ignored.",
