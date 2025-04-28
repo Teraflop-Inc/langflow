@@ -115,7 +115,6 @@ dependencies = [
     "pydantic-ai>=0.0.19",
     "smolagents>=1.8.0",
     "apify-client>=1.8.1",
-    "twelvelabs>=0.4.7",
     "pylint>=3.3.4",
     "ruff>=0.9.7",
     "langchain-graph-retriever==0.6.1",
@@ -124,6 +123,7 @@ dependencies = [
     "langchain-ibm>=0.3.8",
     "opik>=1.6.3",
     "openai>=1.68.2",
+    "twelvelabs>=0.4.7",
 ]
 
 [dependency-groups]
