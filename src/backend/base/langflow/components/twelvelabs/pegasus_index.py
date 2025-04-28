@@ -14,10 +14,10 @@ from concurrent.futures import ThreadPoolExecutor
 class PegasusIndexVideo(Component):
     """Indexes videos using Twelve Labs Pegasus API and adds the video ID to metadata."""
 
-    display_name = "Pegasus Index Video"
+    display_name = "Twelve Labs Pegasus Index Video"
     description = "Index videos using Twelve Labs and add the video_id to metadata."
-    icon = "upload-cloud"
-    name = "PegasusIndexVideo"
+    icon = "TwelveLabs"
+    name = "TwelveLabsPegasusIndexVideo"
 
     inputs = [
         DataInput(
