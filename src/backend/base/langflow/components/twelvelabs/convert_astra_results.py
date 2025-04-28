@@ -1,4 +1,3 @@
-from typing import Dict, List, Optional
 from langflow.custom import Component
 from langflow.schema import Data
 from langflow.io import HandleInput, Output

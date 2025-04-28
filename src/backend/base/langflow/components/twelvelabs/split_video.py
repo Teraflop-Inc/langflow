@@ -1,10 +1,9 @@
 from langflow.custom import Component
-from langflow.inputs import BoolInput, IntInput, HandleInput, StrInput, DropdownInput
+from langflow.inputs import BoolInput, IntInput, HandleInput, DropdownInput
 from langflow.schema import Data
 from langflow.template import Output
 import os
 import subprocess
-import json
 from typing import List
 from datetime import datetime
 import hashlib
