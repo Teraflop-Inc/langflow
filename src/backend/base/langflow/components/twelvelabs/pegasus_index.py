@@ -64,10 +64,8 @@ class PegasusIndexVideo(Component):
         if hasattr(self, 'index_id') and self.index_id:
             try:
                 index = client.index.retrieve(id=self.index_id)
-                self.log(f"Found existing index with ID: {self.index_id}")
                 return self.index_id, index.name
             except Exception as e:
-                self.log(f"Error retrieving index with ID {self.index_id}: {str(e)}", "WARNING")
                 if not hasattr(self, 'index_name') or not self.index_name:
                     raise ValueError("Invalid index ID provided and no index name specified for fallback.")
 
@@ -78,11 +76,9 @@ class PegasusIndexVideo(Component):
                 indexes = client.index.list()
                 for idx in indexes:
                     if idx.name == self.index_name:
-                        self.log(f"Found existing index: {self.index_name} (ID: {idx.id})")
                         return idx.id, idx.name
                 
                 # If we get here, index wasn't found - create it
-                self.log(f"Creating new index: {self.index_name}")
                 index = client.index.create(
                     name=self.index_name,
                     models=[
@@ -94,7 +90,6 @@ class PegasusIndexVideo(Component):
                 )
                 return index.id, index.name
             except Exception as e:
-                self.log(f"Error with index name {self.index_name}: {str(e)}", "ERROR")
                 raise
 
         # If we get here, neither index_id nor index_name was provided
@@ -104,7 +99,6 @@ class PegasusIndexVideo(Component):
         """Callback for task status updates"""
         status_msg = f"Indexing {os.path.basename(video_path)}... Status: {task.status}"
         self.status = status_msg
-        self.log(status_msg)
 
     @retry(
         stop=stop_after_attempt(5),
@@ -137,31 +131,30 @@ class PegasusIndexVideo(Component):
         
         while retries < max_retries:
             try:
-                self.log(f"Checking task status for {os.path.basename(video_path)} (attempt {retries + 1})")
+                self.status = f"Checking task status for {os.path.basename(video_path)} (attempt {retries + 1})"
                 task = self._check_task_status(client, task_id, video_path)
 
                 if task.status == "ready":
-                    self.log(f"Indexing for {os.path.basename(video_path)} completed successfully!")
+                    self.status = f"Indexing for {os.path.basename(video_path)} completed successfully!"
                     return task
                 elif task.status == "failed":
                     error_msg = f"Task failed for {os.path.basename(video_path)}: {getattr(task, 'error', 'Unknown error')}"
-                    self.log(error_msg, "ERROR")
+                    self.status = error_msg
                     raise Exception(error_msg)
                 elif task.status == "error":
                     error_msg = f"Task encountered an error for {os.path.basename(video_path)}: {getattr(task, 'error', 'Unknown error')}"
-                    self.log(error_msg, "ERROR")
+                    self.status = error_msg
                     raise Exception(error_msg)
                 
                 time.sleep(sleep_time)
                 retries += 1
                 elapsed_time = retries * sleep_time
-                status_msg = f"Indexing {os.path.basename(video_path)}... {elapsed_time}s elapsed"
-                self.status = status_msg
+                self.status = f"Indexing {os.path.basename(video_path)}... {elapsed_time}s elapsed"
                 
             except Exception as e:
                 consecutive_errors += 1
                 error_msg = f"Error checking task status for {os.path.basename(video_path)}: {str(e)}"
-                self.log(error_msg, "WARNING")
+                self.status = error_msg
                 
                 if consecutive_errors >= max_consecutive_errors:
                     raise Exception(f"Too many consecutive errors checking task status for {os.path.basename(video_path)}: {error_msg}")
@@ -170,26 +163,25 @@ class PegasusIndexVideo(Component):
                 continue
         
         timeout_msg = f"Timeout waiting for indexing of {os.path.basename(video_path)} after {max_retries * sleep_time} seconds"
-        self.log(timeout_msg, "ERROR")
+        self.status = timeout_msg
         raise TimeoutError(timeout_msg)
 
     def _upload_video(self, client: TwelveLabs, video_path: str, index_id: str) -> str:
         """Upload a single video and return its task ID"""
         with open(video_path, 'rb') as video_file:
-            self.log(f"Uploading {os.path.basename(video_path)} to index {index_id}...")
+            self.status = f"Uploading {os.path.basename(video_path)} to index {index_id}..."
             task = client.task.create(
                 index_id=index_id,
-                file=video_file,
-                language="en"
+                file=video_file
             )
             task_id = task.id
-            self.log(f"Upload complete for {os.path.basename(video_path)}. Task ID: {task_id}")
+            self.status = f"Upload complete for {os.path.basename(video_path)}. Task ID: {task_id}"
             return task_id
 
     def index_videos(self) -> List[Data]:
         """Indexes each video and adds the video_id to its metadata."""
         if not self.videodata:
-            self.log("No video data provided.", "WARNING")
+            self.status = "No video data provided."
             return []
         
         if not self.api_key:
@@ -204,36 +196,36 @@ class PegasusIndexVideo(Component):
         # Get or create the index
         try:
             index_id, index_name = self._get_or_create_index(client)
-            self.log(f"Using index: {index_name} (ID: {index_id})")
+            self.status = f"Using index: {index_name} (ID: {index_id})"
         except Exception as e:
-            self.log(f"Failed to get/create Twelve Labs index: {str(e)}", "ERROR")
+            self.status = f"Failed to get/create Twelve Labs index: {str(e)}"
             raise
 
         # First, validate all videos and create a list of valid ones
         valid_videos: List[Tuple[Data, str]] = []
         for video_data_item in self.videodata:
             if not isinstance(video_data_item, Data):
-                self.log(f"Skipping invalid data item: {video_data_item}", "WARNING")
+                self.status = f"Skipping invalid data item: {video_data_item}"
                 continue
 
             video_info = video_data_item.data
             if not isinstance(video_info, dict):
-                self.log(f"Skipping item with invalid data structure: {video_info}", "WARNING")
+                self.status = f"Skipping item with invalid data structure: {video_info}"
                 continue
 
             video_path = video_info.get('text')
             if not video_path or not isinstance(video_path, str):
-                self.log(f"Skipping item with missing or invalid video path: {video_info}", "WARNING")
+                self.status = f"Skipping item with missing or invalid video path: {video_info}"
                 continue
 
             if not os.path.exists(video_path):
-                self.log(f"Video file not found, skipping: {video_path}", "ERROR")
+                self.status = f"Video file not found, skipping: {video_path}"
                 continue
             
             valid_videos.append((video_data_item, video_path))
 
         if not valid_videos:
-            self.log("No valid videos to process.", "WARNING")
+            self.status = "No valid videos to process."
             return []
 
         # Upload all videos first and collect their task IDs
@@ -243,7 +235,7 @@ class PegasusIndexVideo(Component):
                 task_id = self._upload_video(client, video_path, index_id)
                 upload_tasks.append((data_item, video_path, task_id))
             except Exception as e:
-                self.log(f"Failed to upload {video_path}: {str(e)}", "ERROR")
+                self.status = f"Failed to upload {video_path}: {str(e)}"
                 continue
 
         # Now check all tasks in parallel using a thread pool
@@ -264,14 +256,14 @@ class PegasusIndexVideo(Component):
                     completed_task = future.result()
                     if completed_task.status == "ready":
                         video_id = completed_task.video_id
-                        self.log(f"Video {os.path.basename(video_path)} indexed successfully. Video ID: {video_id}")
+                        self.status = f"Video {os.path.basename(video_path)} indexed successfully. Video ID: {video_id}"
                         
                         # Add video_id to the metadata
                         video_info = data_item.data
                         if 'metadata' not in video_info:
                             video_info['metadata'] = {}
                         elif not isinstance(video_info['metadata'], dict):
-                            self.log(f"Warning: Overwriting non-dict metadata for {video_path}", "WARNING")
+                            self.status = f"Warning: Overwriting non-dict metadata for {video_path}"
                             video_info['metadata'] = {}
 
                         video_info['metadata'].update({
@@ -283,10 +275,11 @@ class PegasusIndexVideo(Component):
                         updated_data_item = Data(data=video_info)
                         indexed_data_list.append(updated_data_item)
                 except Exception as e:
-                    self.log(f"Failed to process {video_path}: {str(e)}", "ERROR")
+                    self.status = f"Failed to process {video_path}: {str(e)}"
 
         if not indexed_data_list:
-            self.log("No videos were successfully indexed.", "WARNING")
+            self.status = "No videos were successfully indexed."
+        else:
+            self.status = f"Finished indexing {len(indexed_data_list)}/{len(self.videodata)} videos."
         
-        self.status = f"Finished indexing {len(indexed_data_list)}/{len(self.videodata)} videos."
         return indexed_data_list
