@@ -30,7 +30,7 @@ class TwelveLabsPegasus(Component):
             info="Enter your Twelve Labs API Key.",
             required=True
         ),
-        SecretStrInput(
+        MessageInput(
             name="video_id",
             display_name="Pegasus Video ID",
             info="Enter a Video ID for a previously indexed video.",
@@ -253,21 +253,28 @@ class TwelveLabsPegasus(Component):
 
     def process_video(self) -> Message:
         """Process video using Pegasus and generate response if message is provided"""
+        print(self.message)
+        print(self.video_id)
+
+        message_text = self.message.text if hasattr(self.message, 'text') else self.message
+        video_id_text = self.video_id.text if hasattr(self.video_id, 'text') else self.video_id
+        
+
+        
         try:
             # If we have a message and already processed video, use existing video_id
             if self.message and self.video_id:
-                self._video_id = self.video_id
-                self.status = f"Have video id: {self.video_id}"
+
+                self._video_id = video_id_text
+                self.status = f"Have video id: {video_id_text}"
                 
                 client = TwelveLabs(api_key=self.api_key)
-                
-                message_text = self.message.text if hasattr(self.message, 'text') else self.message
                 
                 self.status = f"Processing query (w/ video ID): {self._video_id} {message_text} "
                 self.log(self.status)
                 
                 response = client.generate.text(
-                    video_id=self.video_id,
+                    video_id=video_id_text,
                     prompt=message_text,
                     temperature=self.temperature,
                 )

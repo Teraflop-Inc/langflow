@@ -1,5 +1,5 @@
 from langflow.custom import Component
-from langflow.inputs import DataInput, SecretStrInput, StrInput
+from langflow.inputs import DataInput, SecretStrInput, StrInput, DropdownInput
 from langflow.io import Output
 from langflow.schema import Data
 from langflow.field_typing.range_spec import RangeSpec
@@ -32,6 +32,14 @@ class PegasusIndexVideo(Component):
             display_name="Twelve Labs API Key",
             info="Enter your Twelve Labs API Key.",
             required=True
+        ),
+        DropdownInput(
+            name="model_name",
+            display_name="Model",
+            info="Pegasus model to use for indexing",
+            options=["pegasus1.2"],
+            value="pegasus1.2",
+            advanced=False,
         ),
         StrInput(
             name="index_name",
@@ -83,8 +91,8 @@ class PegasusIndexVideo(Component):
                     name=self.index_name,
                     models=[
                         {
-                            "name": "pegasus1.2",
-                            "options": ["visual","audio"]
+                            "name": self.model_name if hasattr(self, 'model_name') else "pegasus1.2",
+                            "options": ["visual", "audio"]
                         }
                     ]
                 )

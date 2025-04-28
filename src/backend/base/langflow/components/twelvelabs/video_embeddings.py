@@ -1,14 +1,14 @@
 from langflow.base.embeddings.model import LCEmbeddingsModel
 from langflow.field_typing import Embeddings
-from langflow.io import SecretStrInput, IntInput
+from langflow.io import SecretStrInput, IntInput, DropdownInput
 from twelvelabs import TwelveLabs
 import time
 from typing import List
 
 class TwelveLabsVideoEmbeddings(Embeddings):
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model_name: str = "Marengo-retrieval-2.7"):
         self.client = TwelveLabs(api_key=api_key)
-        self.model_name = "Marengo-retrieval-2.7"
+        self.model_name = model_name
         
     def _wait_for_task_completion(self, task_id: str):
         while True:
@@ -72,11 +72,31 @@ class TwelveLabsVideoEmbeddings(Embeddings):
 
 class TwelveLabsVideoEmbeddingsComponent(LCEmbeddingsModel):
     display_name = "Twelve Labs Video Embeddings"
+    description = "Generate embeddings from videos using Twelve Labs video embedding models."
     name = "TwelveLabsVideoEmbeddings"
     icon = "TwelveLabs"
     inputs = [
-        SecretStrInput(name="api_key", display_name="API Key", required=True)
+        SecretStrInput(
+            name="api_key", 
+            display_name="API Key", 
+            required=True
+        ),
+        DropdownInput(
+            name="model_name",
+            display_name="Model",
+            advanced=False,
+            options=["Marengo-retrieval-2.7"],
+            value="Marengo-retrieval-2.7",
+        ),
+        IntInput(
+            name="request_timeout",
+            display_name="Request Timeout",
+            advanced=True
+        ),
     ]
 
     def build_embeddings(self) -> Embeddings:
-        return TwelveLabsVideoEmbeddings(api_key=self.api_key)
+        return TwelveLabsVideoEmbeddings(
+            api_key=self.api_key,
+            model_name=self.model_name
+        )
