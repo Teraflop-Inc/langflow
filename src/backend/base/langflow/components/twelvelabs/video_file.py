@@ -13,7 +13,7 @@ class VideoFileComponent(BaseFileComponent):
 
     display_name = "Video File"
     description = "Load a video file in common video formats."
-    icon = "video"
+    icon = "TwelveLabs"
     name = "VideoFile"
 
     VALID_EXTENSIONS = [

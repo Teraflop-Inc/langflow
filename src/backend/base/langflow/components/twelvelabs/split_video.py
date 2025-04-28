@@ -15,7 +15,7 @@ class SplitVideoComponent(Component):
 
     display_name = "Split Video"
     description = "Split a video into multiple clips of specified duration."
-    icon = "video"
+    icon = "TwelveLabs"
     name = "SplitVideo"
 
     inputs = [

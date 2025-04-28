@@ -73,6 +73,7 @@ class TwelveLabsVideoEmbeddings(Embeddings):
 class TwelveLabsVideoEmbeddingsComponent(LCEmbeddingsModel):
     display_name = "Twelve Labs Video Embeddings"
     name = "TwelveLabsVideoEmbeddings"
+    icon = "TwelveLabs"
     inputs = [
         SecretStrInput(name="api_key", display_name="API Key", required=True)
     ]

@@ -7,9 +7,9 @@ from langflow.schema.message import Message
 class ConvertAstraToTwelveLabs(Component):
     """Convert AstraDB search results to TwelveLabs Pegasus inputs."""
     
-    display_name = "Convert AstraDB to Pegasus"
+    display_name = "Convert AstraDB to Pegasus Input"
     description = "Converts AstraDB search results to inputs compatible with TwelveLabs Pegasus."
-    icon = "converter"
+    icon = "TwelveLabs"
     name = "ConvertAstraToTwelveLabs"
     
     inputs = [

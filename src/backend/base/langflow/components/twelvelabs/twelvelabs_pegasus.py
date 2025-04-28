@@ -14,7 +14,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 class TwelveLabsPegasus(Component):
     display_name = "Twelve Labs Pegasus"
     description = "Chat with videos using Twelve Labs Pegasus API."
-    icon = "video"
+    icon = "TwelveLabs"
     name = "TwelveLabsPegasus"
 
     inputs = [
