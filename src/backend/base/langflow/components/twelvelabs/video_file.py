@@ -1,7 +1,6 @@
 from langflow.base.data import BaseFileComponent
 from langflow.io import FileInput
 from langflow.schema import Data
-from langchain_core.documents import Document
 import os
 
 

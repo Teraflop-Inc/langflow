@@ -2,13 +2,11 @@ from langflow.custom import Component
 from langflow.inputs import DataInput, SecretStrInput, StrInput, DropdownInput
 from langflow.io import Output
 from langflow.schema import Data
-from langflow.field_typing.range_spec import RangeSpec
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple
 from twelvelabs import TwelveLabs
 import time
 import os
 from tenacity import retry, stop_after_attempt, wait_exponential
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 class PegasusIndexVideo(Component):

@@ -1,5 +1,5 @@
 from langflow.custom import Component
-from langflow.inputs import DataInput, SecretStrInput, MessageInput, MultilineInput, SliderInput, BoolInput, IntInput, StrInput
+from langflow.inputs import DataInput, SecretStrInput, MessageInput, MultilineInput, SliderInput, DropdownInput
 from langflow.io import Output
 from langflow.schema.message import Message
 from langflow.field_typing.range_spec import RangeSpec
@@ -46,6 +46,14 @@ class TwelveLabsPegasus(Component):
             display_name="Index ID",
             info="ID of an existing index to use. If provided, index_name will be ignored.",
             required=False
+        ),
+        DropdownInput(
+            name="model_name",
+            display_name="Model",
+            info="Pegasus model to use for indexing",
+            options=["pegasus1.2"],
+            value="pegasus1.2",
+            advanced=False,
         ),
         MultilineInput(
             name="message",
@@ -113,7 +121,7 @@ class TwelveLabsPegasus(Component):
                     name=self.index_name,
                     models=[
                         {
-                            "name": "pegasus1.2",
+                            "name": self.model_name if hasattr(self, 'model_name') else "pegasus1.2",
                             "options": ["visual","audio"]
                         }
                     ]
@@ -131,7 +139,7 @@ class TwelveLabsPegasus(Component):
                 name=index_name,
                 models=[
                     {
-                        "name": "pegasus1.2",
+                        "name": self.model_name if hasattr(self, 'model_name') else "pegasus1.2",
                         "options": ["visual","audio"]
                     }
                 ]
