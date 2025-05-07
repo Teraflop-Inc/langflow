@@ -92,33 +92,35 @@ class TwelveLabsPegasus(Component):
         self._task_id = None
 
     def _get_or_create_index(self, client: TwelveLabs) -> Tuple[str, str]:
-        """Get existing index or create new one. Returns (index_id, index_name)"""
-        
+        """Get existing index or create new one. Returns (index_id, index_name)"""        
         # First check if index_id is provided and valid
         if hasattr(self, 'index_id') and self.index_id:
+
+            index_id_text = self.index_id.text
             try:
-                index = client.index.retrieve(id=self.index_id)
-                self.log(f"Found existing index with ID: {self.index_id}")
-                return self.index_id, index.name
+                index = client.index.retrieve(id=index_id_text)
+                self.log(f"Found existing index with ID: {index_id_text}")
+                return index_id_text, index.name
             except Exception as e:
-                self.log(f"Error retrieving index with ID {self.index_id}: {str(e)}", "WARNING")
-                if not hasattr(self, 'index_name') or not self.index_name:
-                    raise ValueError("Invalid index ID provided and no index name specified for fallback.")
+                self.log(f"Error retrieving index with ID {index_id_text}: {str(e)}", "WARNING")
 
         # If index_name is provided, try to find it
         if hasattr(self, 'index_name') and self.index_name:
+            
+            index_name_text = self.index_name.text
+
             try:
                 # List all indexes and find by name
                 indexes = client.index.list()
                 for idx in indexes:
-                    if idx.name == self.index_name:
-                        self.log(f"Found existing index: {self.index_name} (ID: {idx.id})")
+                    if idx.name == index_name_text:
+                        self.log(f"Found existing index: {index_name_text} (ID: {idx.id})")
                         return idx.id, idx.name
                 
                 # If we get here, index wasn't found - create it
-                self.log(f"Creating new index: {self.index_name}")
+                self.log(f"Creating new index: {index_name_text}")
                 index = client.index.create(
-                    name=self.index_name,
+                    name=index_name_text,
                     models=[
                         {
                             "name": self.model_name if hasattr(self, 'model_name') else "pegasus1.2",
@@ -128,7 +130,7 @@ class TwelveLabsPegasus(Component):
                 )
                 return index.id, index.name
             except Exception as e:
-                self.log(f"Error with index name {self.index_name}: {str(e)}", "ERROR")
+                self.log(f"Error with index name {index_name_text}: {str(e)}", "ERROR")
                 raise
 
         # If neither is provided, create a new index with timestamp
@@ -271,7 +273,7 @@ class TwelveLabsPegasus(Component):
         
         try:
             # If we have a message and already processed video, use existing video_id
-            if self.message and self.video_id:
+            if self.message and video_id_text and video_id_text != "":
 
                 self._video_id = video_id_text
                 self.status = f"Have video id: {video_id_text}"
@@ -304,6 +306,7 @@ class TwelveLabsPegasus(Component):
             # Get or create index
             try:
                 index_id, index_name = self._get_or_create_index(client)
+                self.status = f"Using index: {index_name} (ID: {index_id})"
                 self.log(f"Using index: {index_name} (ID: {index_id})")
                 self._index_id = index_id
             except Exception as e:
