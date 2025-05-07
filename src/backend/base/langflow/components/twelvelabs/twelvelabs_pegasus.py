@@ -87,40 +87,43 @@ class TwelveLabsPegasus(Component):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._video_id = None
-        self._index_id = None
+
         self._task_id = None
 
-    def _get_or_create_index(self, client: TwelveLabs) -> Tuple[str, str]:
-        """Get existing index or create new one. Returns (index_id, index_name)"""        
-        # First check if index_id is provided and valid
-        if hasattr(self, 'index_id') and self.index_id:
+        self._video_id = None
+        self._index_id = None
+        self._index_name = None
+        self._message = None
 
-            index_id_text = self.index_id.text
+
+    def _get_or_create_index(self, client: TwelveLabs) -> Tuple[str, str]:
+        """Get existing index or create new one. Returns (index_id, index_name)"""     
+
+        # First check if index_id is provided and valid
+        if hasattr(self, '_index_id') and self._index_id:
+
             try:
-                index = client.index.retrieve(id=index_id_text)
-                self.log(f"Found existing index with ID: {index_id_text}")
-                return index_id_text, index.name
+                index = client.index.retrieve(id=self._index_id)
+                self.log(f"Found existing index with ID: {self._index_id}")
+                return self._index_id, index.name
             except Exception as e:
-                self.log(f"Error retrieving index with ID {index_id_text}: {str(e)}", "WARNING")
+                self.log(f"Error retrieving index with ID {self._index_id}: {str(e)}", "WARNING")
 
         # If index_name is provided, try to find it
-        if hasattr(self, 'index_name') and self.index_name:
+        if hasattr(self, '_index_name') and self._index_name:
             
-            index_name_text = self.index_name.text
-
             try:
                 # List all indexes and find by name
                 indexes = client.index.list()
                 for idx in indexes:
-                    if idx.name == index_name_text:
-                        self.log(f"Found existing index: {index_name_text} (ID: {idx.id})")
+                    if idx.name == self._index_name:
+                        self.log(f"Found existing index: {self._index_name} (ID: {idx.id})")
                         return idx.id, idx.name
                 
                 # If we get here, index wasn't found - create it
-                self.log(f"Creating new index: {index_name_text}")
+                self.log(f"Creating new index: { self._index_name}")
                 index = client.index.create(
-                    name=index_name_text,
+                    name= self._index_name,
                     models=[
                         {
                             "name": self.model_name if hasattr(self, 'model_name') else "pegasus1.2",
@@ -130,7 +133,7 @@ class TwelveLabsPegasus(Component):
                 )
                 return index.id, index.name
             except Exception as e:
-                self.log(f"Error with index name {index_name_text}: {str(e)}", "ERROR")
+                self.log(f"Error with index name { self._index_name}: {str(e)}", "ERROR")
                 raise
 
         # If neither is provided, create a new index with timestamp
@@ -263,29 +266,32 @@ class TwelveLabsPegasus(Component):
 
     def process_video(self) -> Message:
         """Process video using Pegasus and generate response if message is provided"""
-        print(self.message)
-        print(self.video_id)
+        # Check and initialize inputs
+        if hasattr(self, 'index_id') and self.index_id:
+            self._index_id = self.index_id.text if hasattr(self.index_id, 'text') else self.index_id
 
-        message_text = self.message.text if hasattr(self.message, 'text') else self.message
-        video_id_text = self.video_id.text if hasattr(self.video_id, 'text') else self.video_id
-        
+        if hasattr(self, 'index_name') and self.index_name:
+            self._index_name = self.index_name.text if hasattr(self.index_name, 'text') else self.index_name
 
-        
+        if hasattr(self, 'video_id') and self.video_id:
+            self._video_id = self.video_id.text if hasattr(self.video_id, 'text') else self.video_id
+
+        if hasattr(self, 'message') and self.message:
+            self._message = self.message.text if hasattr(self.message, 'text') else self.message
+
         try:
             # If we have a message and already processed video, use existing video_id
-            if self.message and video_id_text and video_id_text != "":
-
-                self._video_id = video_id_text
-                self.status = f"Have video id: {video_id_text}"
+            if self._message and self._video_id and self._video_id != "":
+                self.status = f"Have video id: {self._video_id}"
                 
                 client = TwelveLabs(api_key=self.api_key)
                 
-                self.status = f"Processing query (w/ video ID): {self._video_id} {message_text} "
+                self.status = f"Processing query (w/ video ID): {self._video_id} {self._message}"
                 self.log(self.status)
                 
                 response = client.generate.text(
-                    video_id=video_id_text,
-                    prompt=message_text,
+                    video_id=self._video_id,
+                    prompt=self._message,
                     temperature=self.temperature,
                 )
                 return Message(text=response.data)
@@ -309,6 +315,7 @@ class TwelveLabsPegasus(Component):
                 self.status = f"Using index: {index_name} (ID: {index_id})"
                 self.log(f"Using index: {index_name} (ID: {index_id})")
                 self._index_id = index_id
+                self._index_name = index_name
             except Exception as e:
                 return Message(text=f"Failed to get/create index: {str(e)}")
 
@@ -329,15 +336,14 @@ class TwelveLabsPegasus(Component):
             self._video_id = task.video_id
 
             # Generate response if message provided
-            if self.message:
-                message_text = self.message.text if hasattr(self.message, 'text') else self.message
+            if self._message:
                 
-                self.status = f"Processing query: {message_text}"
+                self.status = f"Processing query: {self._message}"
                 self.log(self.status)
 
                 response = client.generate.text(
                     video_id=self._video_id,
-                    prompt=message_text,
+                    prompt=self._message,
                     temperature=self.temperature,
                 )
                 return Message(text=response.data)
