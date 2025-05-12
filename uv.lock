@@ -10134,6 +10134,19 @@ wheels = [
 ]
 
 [[package]]
+name = "twelvelabs"
+version = "0.4.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/58/d2/0fbd7d147d28af2a5319cd34ec08029eb7e5c5276c347d8f3a63e0837202/twelvelabs-0.4.7.tar.gz", hash = "sha256:95abfddb287b986286cbd78fea3b7e0560cd003c2c0fd7296a2e1f4d322d84d8", size = 28764 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/53/6fe197b3281c346150fc5cffffa63d234408c3ce5b78b506df855b897554/twelvelabs-0.4.7-py3-none-any.whl", hash = "sha256:08b88f724169dcadc8499fffc4ccd447c2c9a855b0c1d1ff2e97d72a43006af1", size = 32241 },
+]
+
+[[package]]
 name = "typer"
 version = "0.15.2"
 source = { registry = "https://pypi.org/simple" }
