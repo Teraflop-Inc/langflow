@@ -1,3 +1,5 @@
+from typing import Any
+
 from langflow.custom import Component
 from langflow.io import HandleInput, Output
 from langflow.schema import Data
@@ -44,7 +46,7 @@ class ConvertAstraToTwelveLabs(Component):
         self._video_id = None
         self._index_id = None
 
-    def build(self) -> None:
+    def build(self, **kwargs: Any) -> None:  # noqa: ARG002 - Required for parent class compatibility
         """Process the AstraDB results and extract TwelveLabs index information."""
         if not self.astra_results:
             return
