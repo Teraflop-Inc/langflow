@@ -1,8 +1,8 @@
 import hashlib
 import math
-import os
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from langflow.custom import Component
@@ -41,7 +41,8 @@ class SplitVideoComponent(Component):
             info=(
                 "How to handle the final clip when it would be shorter than the specified duration:\n"
                 "- Truncate: Skip the final clip entirely if it's shorter than the specified duration\n"
-                "- Overlap Previous: Start the final clip earlier to maintain full duration, overlapping with previous clip\n"
+                "- Overlap Previous: Start the final clip earlier to maintain full duration, "
+                "overlapping with previous clip\n"
                 "- Keep Short: Keep the final clip at its natural length, even if shorter than specified duration"
             ),
             options=["Truncate", "Overlap Previous", "Keep Short"],
@@ -77,7 +78,8 @@ class SplitVideoComponent(Component):
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=False)
             if result.returncode != 0:
-                raise RuntimeError(f"FFprobe error: {result.stderr}")
+                error_msg = f"FFprobe error: {result.stderr}"
+                raise RuntimeError(error_msg)
             return float(result.stdout.strip())
         except Exception as e:
             self.log(f"Error getting video duration: {e!s}", "ERROR")
@@ -86,26 +88,24 @@ class SplitVideoComponent(Component):
     def get_output_dir(self, video_path: str) -> str:
         """Create a unique output directory for clips based on video name and timestamp."""
         # Get the video filename without extension
-        base_name = os.path.splitext(os.path.basename(video_path))[0]
+        path_obj = Path(video_path)
+        base_name = path_obj.stem
 
         # Create a timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
 
         # Create a unique hash from the video path
-        path_hash = hashlib.md5(video_path.encode()).hexdigest()[:8]
+        path_hash = hashlib.sha256(video_path.encode()).hexdigest()[:8]
 
         # Create the output directory path
-        output_dir = os.path.join(
-            os.path.dirname(video_path),
-            f"clips_{base_name}_{timestamp}_{path_hash}"
-        )
+        output_dir = Path(path_obj.parent) / f"clips_{base_name}_{timestamp}_{path_hash}"
 
         # Create the directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        return output_dir
+        return str(output_dir)
 
-    def process_video(self, video_path: str, clip_duration: int, include_original: bool) -> list[Data]:
+    def process_video(self, video_path: str, clip_duration: int, *, include_original: bool) -> list[Data]:
         """Process video and split it into clips using FFmpeg."""
         try:
             # Get video duration
@@ -113,14 +113,18 @@ class SplitVideoComponent(Component):
 
             # Calculate number of clips (ceiling to include partial clip)
             num_clips = math.ceil(total_duration / clip_duration)
-            self.log(f"Total duration: {total_duration}s, Clip duration: {clip_duration}s, Number of clips: {num_clips}")
+            self.log(
+                f"Total duration: {total_duration}s, Clip duration: {clip_duration}s, "
+                f"Number of clips: {num_clips}"
+            )
 
             # Create output directory for clips
             output_dir = self.get_output_dir(video_path)
 
             # Get original video info
-            original_filename = os.path.basename(video_path)
-            original_name = os.path.splitext(original_filename)[0]
+            path_obj = Path(video_path)
+            original_filename = path_obj.name
+            original_name = path_obj.stem
 
             # List to store all video paths (including original if requested)
             video_paths: list[Data] = []
@@ -168,7 +172,8 @@ class SplitVideoComponent(Component):
                     continue
 
                 # Generate output path
-                output_path = os.path.join(output_dir, f"clip_{i:03d}.mp4")
+                output_path = Path(output_dir) / f"clip_{i:03d}.mp4"
+                output_path_str = str(output_path)
 
                 try:
                     # Use FFmpeg to split the video
@@ -180,16 +185,24 @@ class SplitVideoComponent(Component):
                         "-c:v", "libx264",
                         "-c:a", "aac",
                         "-y",  # Overwrite output file if it exists
-                        output_path
+                        output_path_str
                     ]
 
                     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                     if result.returncode != 0:
-                        raise RuntimeError(f"FFmpeg error: {result.stderr}")
+                        error_msg = f"FFmpeg error: {result.stderr}"
+                        raise RuntimeError(error_msg)
+
+                    # Create timestamp string for metadata
+                    start_min = int(start_time // 60)
+                    start_sec = int(start_time % 60)
+                    end_min = int(end_time // 60)
+                    end_sec = int(end_time % 60)
+                    timestamp_str = f"{start_min:02d}:{start_sec:02d} - {end_min:02d}:{end_sec:02d}"
 
                     # Create Data object for the clip
                     clip_data: dict[str, Any] = {
-                        "text": output_path,
+                        "text": output_path_str,
                         "metadata": {
                             "source": video_path,
                             "type": "video",
@@ -211,7 +224,7 @@ class SplitVideoComponent(Component):
                                 "duration": float(duration),
                                 "start_time": float(start_time),
                                 "end_time": float(end_time),
-                                "timestamp": f"{int(start_time//60):02d}:{int(start_time%60):02d} - {int(end_time//60):02d}:{int(end_time%60):02d}"
+                                "timestamp": timestamp_str
                             }
                         }
                     }
@@ -222,25 +235,27 @@ class SplitVideoComponent(Component):
                     raise
 
             self.log(f"Created {len(video_paths)} clips in {output_dir}")
-            return video_paths
-
         except Exception as e:
             self.log(f"Error processing video: {e!s}", "ERROR")
             raise
+        else:
+            return video_paths
 
     def process(self) -> list[Data]:
         """Process the input video and return a list of Data objects containing the clips."""
         try:
             # Get the input video path from the previous component
             if not hasattr(self, "videodata") or not isinstance(self.videodata, list) or len(self.videodata) != 1:
-                raise ValueError("Please provide exactly one video")
+                error_msg = "Please provide exactly one video"
+                raise ValueError(error_msg)
 
             video_path = self.videodata[0].data.get("text")
-            if not video_path or not os.path.exists(video_path):
-                raise ValueError("Invalid video path")
+            if not video_path or not Path(video_path).exists():
+                error_msg = "Invalid video path"
+                raise ValueError(error_msg)
 
             # Process the video
-            return self.process_video(video_path, self.clip_duration, self.include_original)
+            return self.process_video(video_path, self.clip_duration, include_original=self.include_original)
 
         except Exception as e:
             self.log(f"Error in split video component: {e!s}", "ERROR")
