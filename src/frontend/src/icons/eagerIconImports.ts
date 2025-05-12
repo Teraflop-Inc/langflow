@@ -100,7 +100,7 @@ import { Streamlit } from "@/icons/Streamlit";
 import { SupabaseIcon } from "@/icons/supabase";
 import { TavilyIcon } from "@/icons/Tavily";
 import { ThumbDownIconCustom, ThumbUpIconCustom } from "@/icons/thumbs";
-import { TwelveLabsIcon} from "@/icons/TwelveLabs";
+import { TwelveLabsIcon } from "@/icons/TwelveLabs";
 import { UnstructuredIcon } from "@/icons/Unstructured";
 import { UpstashSvgIcon } from "@/icons/Upstash";
 import { VectaraIcon } from "@/icons/VectaraIcon";
