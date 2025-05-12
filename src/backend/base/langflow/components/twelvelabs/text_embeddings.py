@@ -10,6 +10,7 @@ class TwelveLabsTextEmbeddingsComponent(LCEmbeddingsModel):
     description = "Generate embeddings using Twelve Labs text embedding models."
     icon = "TwelveLabs"
     name = "TwelveLabsTextEmbeddings"
+    documentation = "https://github.com/twelvelabs-io/twelvelabs-developer-experience/blob/main/integrations/Langflow/TWELVE_LABS_COMPONENTS_README.md"
 
     inputs = [
         SecretStrInput(

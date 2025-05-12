@@ -16,6 +16,7 @@ class TwelveLabsPegasus(Component):
     description = "Chat with videos using Twelve Labs Pegasus API."
     icon = "TwelveLabs"
     name = "TwelveLabsPegasus"
+    documentation = "https://github.com/twelvelabs-io/twelvelabs-developer-experience/blob/main/integrations/Langflow/TWELVE_LABS_COMPONENTS_README.md"
 
     inputs = [
         DataInput(
