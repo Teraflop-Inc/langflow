@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 from typing import Any, cast
 
 from twelvelabs import TwelveLabs
@@ -33,7 +34,8 @@ class TwelveLabsVideoEmbeddings(Embeddings):
                 embeddings.append(cast(list[float], result["clip_embeddings"][0]))
             else:
                 # If neither is available, raise an error
-                raise ValueError("No embeddings were generated for the video")
+                error_msg = "No embeddings were generated for the video"
+                raise ValueError(error_msg)
 
         return embeddings
 
@@ -47,10 +49,12 @@ class TwelveLabsVideoEmbeddings(Embeddings):
         if result["clip_embeddings"] and len(result["clip_embeddings"]) > 0:
             return cast(list[float], result["clip_embeddings"][0])
         # If neither is available, raise an error
-        raise ValueError("No embeddings were generated for the video")
+        error_msg = "No embeddings were generated for the video"
+        raise ValueError(error_msg)
 
     def embed_video(self, video_path: str) -> dict[str, list[float] | list[list[float]]]:
-        with open(video_path, "rb") as video_file:
+        file_path = Path(video_path)
+        with file_path.open("rb") as video_file:
             task = self.client.embed.task.create(
                 model_name=self.model_name,
                 video_file=video_file,
@@ -67,10 +71,9 @@ class TwelveLabsVideoEmbeddings(Embeddings):
         if hasattr(result.video_embedding, "segments") and result.video_embedding.segments:
             for seg in result.video_embedding.segments:
                 # Check for embeddings_float attribute (this is the correct attribute name)
-                if hasattr(seg, "embeddings_float"):
-                    if seg.embedding_scope == "video":
-                        # Convert to list of floats
-                        video_embedding["video_embedding"] = [float(x) for x in seg.embeddings_float]
+                if hasattr(seg, "embeddings_float") and seg.embedding_scope == "video":
+                    # Convert to list of floats
+                    video_embedding["video_embedding"] = [float(x) for x in seg.embeddings_float]
 
         return video_embedding
 
