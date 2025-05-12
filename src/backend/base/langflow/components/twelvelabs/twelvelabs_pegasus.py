@@ -3,7 +3,7 @@ from langflow.inputs import DataInput, SecretStrInput, MessageInput, MultilineIn
 from langflow.io import Output
 from langflow.schema.message import Message
 from langflow.field_typing.range_spec import RangeSpec
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional, Union, List
 from twelvelabs import TwelveLabs
 import time
 import os
@@ -86,23 +86,20 @@ class TwelveLabsPegasus(Component):
         ),
     ]
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self._task_id = None
-
-        self._video_id = None
-        self._index_id = None
-        self._index_name = None
-        self._message = None
-
+        self._task_id: Optional[str] = None
+        self._video_id: Optional[str] = None
+        self._index_id: Optional[str] = None
+        self._index_name: Optional[str] = None
+        self._message: Optional[str] = None
 
     def _get_or_create_index(self, client: TwelveLabs) -> Tuple[str, str]:
         """Get existing index or create new one. Returns (index_id, index_name)"""     
 
         # First check if index_id is provided and valid
         if hasattr(self, '_index_id') and self._index_id:
-
             try:
                 index = client.index.retrieve(id=self._index_id)
                 self.log(f"Found existing index with ID: {self._index_id}")
@@ -112,7 +109,6 @@ class TwelveLabsPegasus(Component):
 
         # If index_name is provided, try to find it
         if hasattr(self, '_index_name') and self._index_name:
-            
             try:
                 # List all indexes and find by name
                 indexes = client.index.list()
@@ -122,9 +118,9 @@ class TwelveLabsPegasus(Component):
                         return idx.id, idx.name
                 
                 # If we get here, index wasn't found - create it
-                self.log(f"Creating new index: { self._index_name}")
+                self.log(f"Creating new index: {self._index_name}")
                 index = client.index.create(
-                    name= self._index_name,
+                    name=self._index_name,
                     models=[
                         {
                             "name": self.model_name if hasattr(self, 'model_name') else "pegasus1.2",
@@ -134,7 +130,7 @@ class TwelveLabsPegasus(Component):
                 )
                 return index.id, index.name
             except Exception as e:
-                self.log(f"Error with index name { self._index_name}: {str(e)}", "ERROR")
+                self.log(f"Error with index name {self._index_name}: {str(e)}", "ERROR")
                 raise
 
         # If neither is provided, create a new index with timestamp
@@ -160,7 +156,7 @@ class TwelveLabsPegasus(Component):
         wait=wait_exponential(multiplier=1, min=4, max=10),
         reraise=True
     )
-    async def _make_api_request(self, client, method, *args, **kwargs):
+    async def _make_api_request(self, client: TwelveLabs, method: Any, *args: Any, **kwargs: Any) -> Any:
         """Make API request with retry logic"""
         try:
             return await method(*args, **kwargs)
@@ -219,7 +215,7 @@ class TwelveLabsPegasus(Component):
         self.log(timeout_msg, "ERROR")
         raise Exception(timeout_msg)
 
-    def validate_video_file(self, filepath: str) -> tuple[bool, str]:
+    def validate_video_file(self, filepath: str) -> Tuple[bool, str]:
         """
         Validate video file using ffprobe.
         Returns (is_valid, error_message)
@@ -260,9 +256,9 @@ class TwelveLabsPegasus(Component):
         except Exception as e:
             return False, f"Validation error: {str(e)}"
 
-    def on_task_update(self, task):
+    def on_task_update(self, task: Dict[str, Any]) -> None:
         """Callback for task status updates"""
-        self.status = f"Processing video... Status: {task.status}"
+        self.status = f"Processing video... Status: {task['status']}"
         self.log(self.status)
 
     def process_video(self) -> Message:
@@ -338,7 +334,6 @@ class TwelveLabsPegasus(Component):
 
             # Generate response if message provided
             if self._message:
-                
                 self.status = f"Processing query: {self._message}"
                 self.log(self.status)
 

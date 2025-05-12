@@ -3,14 +3,14 @@ from langflow.field_typing import Embeddings
 from langflow.io import SecretStrInput, IntInput, DropdownInput
 from twelvelabs import TwelveLabs
 import time
-from typing import List
+from typing import List, Dict, Any, Optional, Union, Sequence, cast
 
 class TwelveLabsVideoEmbeddings(Embeddings):
-    def __init__(self, api_key: str, model_name: str = "Marengo-retrieval-2.7"):
+    def __init__(self, api_key: str, model_name: str = "Marengo-retrieval-2.7") -> None:
         self.client = TwelveLabs(api_key=api_key)
         self.model_name = model_name
         
-    def _wait_for_task_completion(self, task_id: str):
+    def _wait_for_task_completion(self, task_id: str) -> Any:
         while True:
             result = self.client.embed.task.retrieve(id=task_id)
             if result.status == "ready":
@@ -18,16 +18,16 @@ class TwelveLabsVideoEmbeddings(Embeddings):
             time.sleep(5)
             
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        embeddings = []
+        embeddings: List[List[float]] = []
         for text in texts:
             video_path = text.page_content if hasattr(text, 'page_content') else str(text)
             result = self.embed_video(video_path)
             
             # First try to use video embedding, then fall back to clip embedding if available
-            if result['video_embedding']:
-                embeddings.append(result['video_embedding'])
+            if result['video_embedding'] is not None:
+                embeddings.append(cast(List[float], result['video_embedding']))
             elif result['clip_embeddings'] and len(result['clip_embeddings']) > 0:
-                embeddings.append(result['clip_embeddings'][0])
+                embeddings.append(cast(List[float], result['clip_embeddings'][0]))
             else:
                 # If neither is available, raise an error
                 raise ValueError("No embeddings were generated for the video")
@@ -39,16 +39,15 @@ class TwelveLabsVideoEmbeddings(Embeddings):
         result = self.embed_video(video_path)
         
         # First try to use video embedding, then fall back to clip embedding if available
-        if result['video_embedding']:
-            return result['video_embedding']
+        if result['video_embedding'] is not None:
+            return cast(List[float], result['video_embedding'])
         elif result['clip_embeddings'] and len(result['clip_embeddings']) > 0:
-            return result['clip_embeddings']
+            return cast(List[float], result['clip_embeddings'][0])
         else:
             # If neither is available, raise an error
             raise ValueError("No embeddings were generated for the video")
 
-    def embed_video(self, video_path: str) -> dict:
-
+    def embed_video(self, video_path: str) -> Dict[str, Union[List[float], List[List[float]]]]:
         with open(video_path, 'rb') as video_file:
             task = self.client.embed.task.create(
                 model_name=self.model_name,
@@ -58,7 +57,10 @@ class TwelveLabsVideoEmbeddings(Embeddings):
         
         result = self._wait_for_task_completion(task.id)
         
-        video_embedding = {'video_embedding': None, 'clip_embeddings': []}
+        video_embedding: Dict[str, Union[List[float], List[List[float]]]] = {
+            'video_embedding': [],  # Initialize as empty list instead of None
+            'clip_embeddings': []
+        }
         
         if hasattr(result.video_embedding, 'segments') and result.video_embedding.segments:
             for seg in result.video_embedding.segments:

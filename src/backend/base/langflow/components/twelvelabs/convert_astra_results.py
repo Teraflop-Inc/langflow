@@ -43,7 +43,7 @@ class ConvertAstraToTwelveLabs(Component):
         self._video_id = None
         self._index_id = None
         
-    def build(self) -> None:
+    def build(self, **kwargs) -> None:
         """Process the AstraDB results and extract TwelveLabs index information."""
         if not self.astra_results:
             return

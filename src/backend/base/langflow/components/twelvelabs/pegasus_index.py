@@ -2,7 +2,7 @@ from langflow.custom import Component
 from langflow.inputs import DataInput, SecretStrInput, StrInput, DropdownInput
 from langflow.io import Output
 from langflow.schema import Data
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional, Union
 from twelvelabs import TwelveLabs
 import time
 import os
@@ -102,9 +102,9 @@ class PegasusIndexVideo(Component):
         # If we get here, neither index_id nor index_name was provided
         raise ValueError("Either index_name or index_id must be provided")
 
-    def on_task_update(self, task, video_path):
+    def on_task_update(self, task: Dict[str, Any], video_path: str) -> None:
         """Callback for task status updates"""
-        status_msg = f"Indexing {os.path.basename(video_path)}... Status: {task.status}"
+        status_msg = f"Indexing {os.path.basename(video_path)}... Status: {task['status']}"
         self.status = status_msg
 
     @retry(
@@ -141,15 +141,15 @@ class PegasusIndexVideo(Component):
                 self.status = f"Checking task status for {os.path.basename(video_path)} (attempt {retries + 1})"
                 task = self._check_task_status(client, task_id, video_path)
 
-                if task.status == "ready":
+                if task['status'] == "ready":
                     self.status = f"Indexing for {os.path.basename(video_path)} completed successfully!"
                     return task
-                elif task.status == "failed":
-                    error_msg = f"Task failed for {os.path.basename(video_path)}: {getattr(task, 'error', 'Unknown error')}"
+                elif task['status'] == "failed":
+                    error_msg = f"Task failed for {os.path.basename(video_path)}: {task.get('error', 'Unknown error')}"
                     self.status = error_msg
                     raise Exception(error_msg)
-                elif task.status == "error":
-                    error_msg = f"Task encountered an error for {os.path.basename(video_path)}: {getattr(task, 'error', 'Unknown error')}"
+                elif task['status'] == "error":
+                    error_msg = f"Task encountered an error for {os.path.basename(video_path)}: {task.get('error', 'Unknown error')}"
                     self.status = error_msg
                     raise Exception(error_msg)
                 
@@ -198,7 +198,7 @@ class PegasusIndexVideo(Component):
             raise ValueError("Either index_name or index_id must be provided")
 
         client = TwelveLabs(api_key=self.api_key)
-        indexed_data_list = []
+        indexed_data_list: List[Data] = []
         
         # Get or create the index
         try:
@@ -261,8 +261,8 @@ class PegasusIndexVideo(Component):
             for data_item, video_path, future in futures:
                 try:
                     completed_task = future.result()
-                    if completed_task.status == "ready":
-                        video_id = completed_task.video_id
+                    if completed_task['status'] == "ready":
+                        video_id = completed_task['video_id']
                         self.status = f"Video {os.path.basename(video_path)} indexed successfully. Video ID: {video_id}"
                         
                         # Add video_id to the metadata

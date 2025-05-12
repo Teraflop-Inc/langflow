@@ -4,7 +4,7 @@ from langflow.schema import Data
 from langflow.template import Output
 import os
 import subprocess
-from typing import List
+from typing import List, Dict, Any, Optional, Union, Tuple
 from datetime import datetime
 import hashlib
 import math
@@ -121,37 +121,37 @@ class SplitVideoComponent(Component):
             original_name = os.path.splitext(original_filename)[0]
             
             # List to store all video paths (including original if requested)
-            video_paths = []
+            video_paths: List[Data] = []
             
             # Add original video if requested
             if include_original:
-                original_data = {
+                original_data: Dict[str, Any] = {
                     "text": video_path,
                     "metadata": {
                         "source": video_path,
                         "type": "video",
                         "clip_index": -1,  # -1 indicates original video
-                        "duration": total_duration,
+                        "duration": int(total_duration),  # Convert to int
                         "original_video": {
                             "name": original_name,
                             "filename": original_filename,
                             "path": video_path,
-                            "duration": total_duration,
-                            "total_clips": num_clips,
-                            "clip_duration": clip_duration
+                            "duration": int(total_duration),  # Convert to int
+                            "total_clips": int(num_clips),
+                            "clip_duration": int(clip_duration)
                         }
                     }
                 }
                 video_paths.append(Data(data=original_data))
             
             # Split video into clips
-            for i in range(num_clips):
-                start_time = i * clip_duration
-                end_time = min((i + 1) * clip_duration, total_duration)
+            for i in range(int(num_clips)):  # Convert num_clips to int for range
+                start_time = float(i * clip_duration)  # Convert to float for time calculations
+                end_time = min(float((i + 1) * clip_duration), total_duration)
                 duration = end_time - start_time
                 
                 # Handle last clip if it's shorter
-                if i == num_clips - 1 and duration < clip_duration:
+                if i == int(num_clips) - 1 and duration < clip_duration:  # Convert num_clips to int for comparison
                     if self.last_clip_handling == "Truncate":
                         # Skip if the last clip would be too short
                         continue
@@ -186,29 +186,29 @@ class SplitVideoComponent(Component):
                         raise RuntimeError(f"FFmpeg error: {result.stderr}")
                     
                     # Create Data object for the clip
-                    clip_data = {
+                    clip_data: Dict[str, Any] = {
                         "text": output_path,
                         "metadata": {
                             "source": video_path,
                             "type": "video",
                             "clip_index": i,
-                            "start_time": start_time,
-                            "end_time": end_time,
-                            "duration": duration,
+                            "start_time": float(start_time),
+                            "end_time": float(end_time),
+                            "duration": float(duration),
                             "original_video": {
                                 "name": original_name,
                                 "filename": original_filename,
                                 "path": video_path,
-                                "duration": total_duration,
-                                "total_clips": num_clips,
-                                "clip_duration": clip_duration
+                                "duration": int(total_duration),
+                                "total_clips": int(num_clips),
+                                "clip_duration": int(clip_duration)
                             },
                             "clip": {
                                 "index": i,
-                                "total": num_clips,
-                                "duration": duration,
-                                "start_time": start_time,
-                                "end_time": end_time,
+                                "total": int(num_clips),
+                                "duration": float(duration),
+                                "start_time": float(start_time),
+                                "end_time": float(end_time),
                                 "timestamp": f"{int(start_time//60):02d}:{int(start_time%60):02d} - {int(end_time//60):02d}:{int(end_time%60):02d}"
                             }
                         }
