@@ -69,14 +69,28 @@ class SplitVideoComponent(Component):
     def get_video_duration(self, video_path: str) -> float:
         """Get video duration using FFmpeg."""
         try:
+            # Validate video path to prevent shell injection
+            if not isinstance(video_path, str) or any(c in video_path for c in ";&|`$(){}[]<>*?!#~"):
+                error_msg = "Invalid video path"
+                raise ValueError(error_msg)
+
             cmd = [
                 "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
-                video_path
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                video_path,
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            result = subprocess.run(  # noqa: S603
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,  # Explicitly set shell=False for security
+            )
             if result.returncode != 0:
                 error_msg = f"FFprobe error: {result.stderr}"
                 raise RuntimeError(error_msg)
@@ -114,8 +128,7 @@ class SplitVideoComponent(Component):
             # Calculate number of clips (ceiling to include partial clip)
             num_clips = math.ceil(total_duration / clip_duration)
             self.log(
-                f"Total duration: {total_duration}s, Clip duration: {clip_duration}s, "
-                f"Number of clips: {num_clips}"
+                f"Total duration: {total_duration}s, Clip duration: {clip_duration}s, Number of clips: {num_clips}"
             )
 
             # Create output directory for clips
@@ -144,9 +157,9 @@ class SplitVideoComponent(Component):
                             "path": video_path,
                             "duration": int(total_duration),  # Convert to int
                             "total_clips": int(num_clips),
-                            "clip_duration": int(clip_duration)
-                        }
-                    }
+                            "clip_duration": int(clip_duration),
+                        },
+                    },
                 }
                 video_paths.append(Data(data=original_data))
 
@@ -179,16 +192,27 @@ class SplitVideoComponent(Component):
                     # Use FFmpeg to split the video
                     cmd = [
                         "ffmpeg",
-                        "-i", video_path,
-                        "-ss", str(start_time),
-                        "-t", str(duration),
-                        "-c:v", "libx264",
-                        "-c:a", "aac",
+                        "-i",
+                        video_path,
+                        "-ss",
+                        str(start_time),
+                        "-t",
+                        str(duration),
+                        "-c:v",
+                        "libx264",
+                        "-c:a",
+                        "aac",
                         "-y",  # Overwrite output file if it exists
-                        output_path_str
+                        output_path_str,
                     ]
 
-                    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                    result = subprocess.run(  # noqa: S603
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        shell=False,  # Explicitly set shell=False for security
+                    )
                     if result.returncode != 0:
                         error_msg = f"FFmpeg error: {result.stderr}"
                         raise RuntimeError(error_msg)
@@ -216,7 +240,7 @@ class SplitVideoComponent(Component):
                                 "path": video_path,
                                 "duration": int(total_duration),
                                 "total_clips": int(num_clips),
-                                "clip_duration": int(clip_duration)
+                                "clip_duration": int(clip_duration),
                             },
                             "clip": {
                                 "index": i,
@@ -224,9 +248,9 @@ class SplitVideoComponent(Component):
                                 "duration": float(duration),
                                 "start_time": float(start_time),
                                 "end_time": float(end_time),
-                                "timestamp": timestamp_str
-                            }
-                        }
+                                "timestamp": timestamp_str,
+                            },
+                        },
                     }
                     video_paths.append(Data(data=clip_data))
 
@@ -252,6 +276,11 @@ class SplitVideoComponent(Component):
             video_path = self.videodata[0].data.get("text")
             if not video_path or not Path(video_path).exists():
                 error_msg = "Invalid video path"
+                raise ValueError(error_msg)
+
+            # Validate video path to prevent shell injection
+            if not isinstance(video_path, str) or any(c in video_path for c in ";&|`$(){}[]<>*?!#~"):
+                error_msg = "Invalid video path contains unsafe characters"
                 raise ValueError(error_msg)
 
             # Process the video

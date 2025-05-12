@@ -43,13 +43,10 @@ class PegasusIndexVideo(Component):
             display_name="Video Data",
             info="Video Data objects (from VideoFile or SplitVideo)",
             is_list=True,
-            required=True
+            required=True,
         ),
         SecretStrInput(
-            name="api_key",
-            display_name="Twelve Labs API Key",
-            info="Enter your Twelve Labs API Key.",
-            required=True
+            name="api_key", display_name="Twelve Labs API Key", info="Enter your Twelve Labs API Key.", required=True
         ),
         DropdownInput(
             name="model_name",
@@ -63,23 +60,19 @@ class PegasusIndexVideo(Component):
             name="index_name",
             display_name="Index Name",
             info="Name of the index to use. If the index doesn't exist, it will be created.",
-            required=False
+            required=False,
         ),
         StrInput(
             name="index_id",
             display_name="Index ID",
             info="ID of an existing index to use. If provided, index_name will be ignored.",
-            required=False
+            required=False,
         ),
     ]
 
     outputs = [
         Output(
-            display_name="Indexed Data",
-            name="indexed_data",
-            method="index_videos",
-            output_types=["Data"],
-            is_list=True
+            display_name="Indexed Data", name="indexed_data", method="index_videos", output_types=["Data"], is_list=True
         ),
     ]
 
@@ -114,9 +107,9 @@ class PegasusIndexVideo(Component):
                     models=[
                         {
                             "name": self.model_name if hasattr(self, "model_name") else "pegasus1.2",
-                            "options": ["visual", "audio"]
+                            "options": ["visual", "audio"],
                         }
-                    ]
+                    ],
                 )
             except (ValueError, KeyError) as e:
                 error_msg = f"Error with index name {self.index_name}"
@@ -137,11 +130,7 @@ class PegasusIndexVideo(Component):
         status_msg = f"Indexing {video_name}... Status: {task.status}"
         self.status = status_msg
 
-    @retry(
-        stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=1, min=5, max=60),
-        reraise=True
-    )
+    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=5, max=60), reraise=True)
     def _check_task_status(
         self,
         client: TwelveLabs,
@@ -157,12 +146,7 @@ class PegasusIndexVideo(Component):
         return task
 
     def _wait_for_task_completion(
-        self,
-        client: TwelveLabs,
-        task_id: str,
-        video_path: str,
-        max_retries: int = 120,
-        sleep_time: int = 10
+        self, client: TwelveLabs, task_id: str, video_path: str, max_retries: int = 120, sleep_time: int = 10
     ) -> Any:
         """Wait for task completion with timeout and improved error handling.
 
@@ -186,10 +170,7 @@ class PegasusIndexVideo(Component):
                     self.status = error_msg
                     raise TaskError(error_msg)
                 if task.status == "error":
-                    error_msg = (
-                        f"Task encountered an error for {video_name}: "
-                        f"{getattr(task, 'error', 'Unknown error')}"
-                    )
+                    error_msg = f"Task encountered an error for {video_name}: {getattr(task, 'error', 'Unknown error')}"
                     self.status = error_msg
                     raise TaskError(error_msg)
 
@@ -207,7 +188,7 @@ class PegasusIndexVideo(Component):
                     too_many_errors = f"Too many consecutive errors checking task status for {video_name}"
                     raise TaskError(too_many_errors) from e
 
-                time.sleep(sleep_time * (2 ** consecutive_errors))
+                time.sleep(sleep_time * (2**consecutive_errors))
                 continue
 
         timeout_msg = f"Timeout waiting for indexing of {video_name} after {max_retries * sleep_time} seconds"
@@ -222,10 +203,7 @@ class PegasusIndexVideo(Component):
         video_name = Path(video_path).name
         with Path(video_path).open("rb") as video_file:
             self.status = f"Uploading {video_name} to index {index_id}..."
-            task = client.task.create(
-                index_id=index_id,
-                file=video_file
-            )
+            task = client.task.create(index_id=index_id, file=video_file)
             task_id = task.id
             self.status = f"Upload complete for {video_name}. Task ID: {task_id}"
             return task_id
@@ -296,12 +274,7 @@ class PegasusIndexVideo(Component):
         with ThreadPoolExecutor(max_workers=min(10, len(upload_tasks))) as executor:
             futures = []
             for data_item, video_path, task_id in upload_tasks:
-                future = executor.submit(
-                    self._wait_for_task_completion,
-                    client,
-                    task_id,
-                    video_path
-                )
+                future = executor.submit(self._wait_for_task_completion, client, task_id, video_path)
                 futures.append((data_item, video_path, future))
 
             # Process results as they complete
@@ -321,11 +294,9 @@ class PegasusIndexVideo(Component):
                             self.status = f"Warning: Overwriting non-dict metadata for {video_path}"
                             video_info["metadata"] = {}
 
-                        video_info["metadata"].update({
-                            "video_id": video_id,
-                            "index_id": index_id,
-                            "index_name": index_name
-                        })
+                        video_info["metadata"].update(
+                            {"video_id": video_id, "index_id": index_id, "index_name": index_name}
+                        )
 
                         updated_data_item = Data(data=video_info)
                         indexed_data_list.append(updated_data_item)

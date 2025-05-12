@@ -42,17 +42,9 @@ class TwelveLabsPegasus(Component):
     documentation = "https://github.com/twelvelabs-io/twelvelabs-developer-experience/blob/main/integrations/Langflow/TWELVE_LABS_COMPONENTS_README.md"
 
     inputs = [
-        DataInput(
-            name="videodata",
-            display_name="Video Data",
-            info="Video Data",
-            is_list=True
-        ),
+        DataInput(name="videodata", display_name="Video Data", info="Video Data", is_list=True),
         SecretStrInput(
-            name="api_key",
-            display_name="Twelve Labs API Key",
-            info="Enter your Twelve Labs API Key.",
-            required=True
+            name="api_key", display_name="Twelve Labs API Key", info="Enter your Twelve Labs API Key.", required=True
         ),
         MessageInput(
             name="video_id",
@@ -63,13 +55,13 @@ class TwelveLabsPegasus(Component):
             name="index_name",
             display_name="Index Name",
             info="Name of the index to use. If the index doesn't exist, it will be created.",
-            required=False
+            required=False,
         ),
         MessageInput(
             name="index_id",
             display_name="Index ID",
             info="ID of an existing index to use. If provided, index_name will be ignored.",
-            required=False
+            required=False,
         ),
         DropdownInput(
             name="model_name",
@@ -94,7 +86,7 @@ class TwelveLabsPegasus(Component):
                 "Controls randomness in responses. Lower values are more deterministic, "
                 "higher values are more creative."
             ),
-        )
+        ),
     ]
 
     outputs = [
@@ -153,9 +145,9 @@ class TwelveLabsPegasus(Component):
                     models=[
                         {
                             "name": self.model_name if hasattr(self, "model_name") else "pegasus1.2",
-                            "options": ["visual","audio"]
+                            "options": ["visual", "audio"],
                         }
-                    ]
+                    ],
                 )
             except (ValueError, KeyError) as e:
                 self.log(f"Error with index name {self._index_name}: {e!s}", "ERROR")
@@ -173,9 +165,9 @@ class TwelveLabsPegasus(Component):
                 models=[
                     {
                         "name": self.model_name if hasattr(self, "model_name") else "pegasus1.2",
-                        "options": ["visual","audio"]
+                        "options": ["visual", "audio"],
                     }
-                ]
+                ],
             )
         except (ValueError, KeyError) as e:
             self.log(f"Failed to create new index: {e!s}", "ERROR")
@@ -184,11 +176,7 @@ class TwelveLabsPegasus(Component):
         else:
             return index.id, index.name
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10),
-        reraise=True
-    )
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10), reraise=True)
     async def _make_api_request(self, method: Any, *args: Any, **kwargs: Any) -> Any:
         """Make API request with retry logic.
 
@@ -202,11 +190,7 @@ class TwelveLabsPegasus(Component):
             raise ApiRequestError(error_message) from e
 
     def wait_for_task_completion(
-        self,
-        client: TwelveLabs,
-        task_id: str,
-        max_retries: int = 120,
-        sleep_time: int = 5
+        self, client: TwelveLabs, task_id: str, max_retries: int = 120, sleep_time: int = 5
     ) -> Any:
         """Wait for task completion with timeout and improved error handling.
 
@@ -268,12 +252,16 @@ class TwelveLabsPegasus(Component):
         try:
             cmd = [
                 "ffprobe",
-                "-loglevel", "error",
-                "-show_entries", "stream=codec_type,codec_name",
-                "-of", "default=nw=1",
-                "-print_format", "json",
+                "-loglevel",
+                "error",
+                "-show_entries",
+                "stream=codec_type,codec_name",
+                "-of",
+                "default=nw=1",
+                "-print_format",
+                "json",
                 "-show_format",
-                filepath
+                filepath,
             ]
 
             # Use subprocess with a list of arguments to avoid shell injection
@@ -284,7 +272,7 @@ class TwelveLabsPegasus(Component):
                 capture_output=True,
                 text=True,
                 check=False,
-                shell=False  # Explicitly set shell=False for security
+                shell=False,  # Explicitly set shell=False for security
             )
 
             if result.returncode != 0:
@@ -292,10 +280,7 @@ class TwelveLabsPegasus(Component):
 
             probe_data = json.loads(result.stdout)
 
-            has_video = any(
-                stream.get("codec_type") == "video"
-                for stream in probe_data.get("streams", [])
-            )
+            has_video = any(stream.get("codec_type") == "video" for stream in probe_data.get("streams", []))
 
             if not has_video:
                 return False, "No video stream found in file"
@@ -377,10 +362,7 @@ class TwelveLabsPegasus(Component):
                 return Message(text=f"Failed to get/create index: {e}")
 
             with Path(video_path).open("rb") as video_file:
-                task = client.task.create(
-                    index_id=self._index_id,
-                    file=video_file
-                )
+                task = client.task.create(index_id=self._index_id, file=video_file)
             self._task_id = task.id
 
             # Wait for processing to complete
@@ -405,8 +387,7 @@ class TwelveLabsPegasus(Component):
                 return Message(text=response.data)
 
             success_msg = (
-                f"Video processed successfully. You can now ask questions about the video. "
-                f"Video ID: {self._video_id}"
+                f"Video processed successfully. You can now ask questions about the video. Video ID: {self._video_id}"
             )
             return Message(text=success_msg)
 

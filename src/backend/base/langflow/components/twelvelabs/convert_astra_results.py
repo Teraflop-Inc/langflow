@@ -22,7 +22,7 @@ class ConvertAstraToTwelveLabs(Component):
             input_types=["Data"],
             info="Search results from AstraDB component",
             required=True,
-            is_list=True
+            is_list=True,
         )
     ]
 
@@ -38,7 +38,7 @@ class ConvertAstraToTwelveLabs(Component):
             display_name="Video ID",
             type_=Message,
             method="get_video_id",
-        )
+        ),
     ]
 
     def __init__(self, **kwargs):

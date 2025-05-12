@@ -58,14 +58,14 @@ class TwelveLabsVideoEmbeddings(Embeddings):
             task = self.client.embed.task.create(
                 model_name=self.model_name,
                 video_file=video_file,
-                video_embedding_scopes=["video","clip"],
+                video_embedding_scopes=["video", "clip"],
             )
 
         result = self._wait_for_task_completion(task.id)
 
         video_embedding: dict[str, list[float] | list[list[float]]] = {
             "video_embedding": [],  # Initialize as empty list instead of None
-            "clip_embeddings": []
+            "clip_embeddings": [],
         }
 
         if hasattr(result.video_embedding, "segments") and result.video_embedding.segments:
@@ -77,6 +77,7 @@ class TwelveLabsVideoEmbeddings(Embeddings):
 
         return video_embedding
 
+
 class TwelveLabsVideoEmbeddingsComponent(LCEmbeddingsModel):
     display_name = "Twelve Labs Video Embeddings"
     description = "Generate embeddings from videos using Twelve Labs video embedding models."
@@ -84,11 +85,7 @@ class TwelveLabsVideoEmbeddingsComponent(LCEmbeddingsModel):
     icon = "TwelveLabs"
     documentation = "https://github.com/twelvelabs-io/twelvelabs-developer-experience/blob/main/integrations/Langflow/TWELVE_LABS_COMPONENTS_README.md"
     inputs = [
-        SecretStrInput(
-            name="api_key",
-            display_name="API Key",
-            required=True
-        ),
+        SecretStrInput(name="api_key", display_name="API Key", required=True),
         DropdownInput(
             name="model_name",
             display_name="Model",
@@ -96,15 +93,8 @@ class TwelveLabsVideoEmbeddingsComponent(LCEmbeddingsModel):
             options=["Marengo-retrieval-2.7"],
             value="Marengo-retrieval-2.7",
         ),
-        IntInput(
-            name="request_timeout",
-            display_name="Request Timeout",
-            advanced=True
-        ),
+        IntInput(name="request_timeout", display_name="Request Timeout", advanced=True),
     ]
 
     def build_embeddings(self) -> Embeddings:
-        return TwelveLabsVideoEmbeddings(
-            api_key=self.api_key,
-            model_name=self.model_name
-        )
+        return TwelveLabsVideoEmbeddings(api_key=self.api_key, model_name=self.model_name)

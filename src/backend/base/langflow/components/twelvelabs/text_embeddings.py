@@ -1,4 +1,3 @@
-
 from twelvelabs import TwelveLabs
 
 from langflow.base.embeddings.model import LCEmbeddingsModel
@@ -17,10 +16,7 @@ class TwelveLabsTextEmbeddings(Embeddings):
             if not text:
                 continue
 
-            result = self.client.embed.create(
-                model_name=self.model,
-                text=text
-            )
+            result = self.client.embed.create(model_name=self.model, text=text)
 
             if result.text_embedding and result.text_embedding.segments:
                 for segment in result.text_embedding.segments:
@@ -30,14 +26,12 @@ class TwelveLabsTextEmbeddings(Embeddings):
         return all_embeddings
 
     def embed_query(self, text: str) -> list[float]:
-        result = self.client.embed.create(
-            model_name=self.model,
-            text=text
-        )
+        result = self.client.embed.create(model_name=self.model, text=text)
 
         if result.text_embedding and result.text_embedding.segments:
             return [float(x) for x in result.text_embedding.segments[0].embeddings_float]
         return []
+
 
 class TwelveLabsTextEmbeddingsComponent(LCEmbeddingsModel):
     display_name = "Twelve Labs Text Embeddings"
@@ -47,12 +41,7 @@ class TwelveLabsTextEmbeddingsComponent(LCEmbeddingsModel):
     documentation = "https://github.com/twelvelabs-io/twelvelabs-developer-experience/blob/main/integrations/Langflow/TWELVE_LABS_COMPONENTS_README.md"
 
     inputs = [
-        SecretStrInput(
-            name="api_key",
-            display_name="Twelve Labs API Key",
-            value="TWELVELABS_API_KEY",
-            required=True
-        ),
+        SecretStrInput(name="api_key", display_name="Twelve Labs API Key", value="TWELVELABS_API_KEY", required=True),
         DropdownInput(
             name="model",
             display_name="Model",
@@ -60,21 +49,9 @@ class TwelveLabsTextEmbeddingsComponent(LCEmbeddingsModel):
             options=["Marengo-retrieval-2.7"],
             value="Marengo-retrieval-2.7",
         ),
-        IntInput(
-            name="max_retries",
-            display_name="Max Retries",
-            value=3,
-            advanced=True
-        ),
-        FloatInput(
-            name="request_timeout",
-            display_name="Request Timeout",
-            advanced=True
-        ),
+        IntInput(name="max_retries", display_name="Max Retries", value=3, advanced=True),
+        FloatInput(name="request_timeout", display_name="Request Timeout", advanced=True),
     ]
 
     def build_embeddings(self) -> Embeddings:
-        return TwelveLabsTextEmbeddings(
-            api_key=self.api_key,
-            model=self.model
-        )
+        return TwelveLabsTextEmbeddings(api_key=self.api_key, model=self.model)

@@ -19,13 +19,35 @@ class VideoFileComponent(BaseFileComponent):
 
     VALID_EXTENSIONS = [
         # Common video formats
-        "mp4", "avi", "mov", "mkv", "webm", "flv", "wmv",
-        "mpg", "mpeg", "m4v", "3gp", "3g2", "m2v",
+        "mp4",
+        "avi",
+        "mov",
+        "mkv",
+        "webm",
+        "flv",
+        "wmv",
+        "mpg",
+        "mpeg",
+        "m4v",
+        "3gp",
+        "3g2",
+        "m2v",
         # Professional video formats
-        "mxf", "dv", "vob",
+        "mxf",
+        "dv",
+        "vob",
         # Additional video formats
-        "ogv", "rm", "rmvb", "amv", "divx", "m2ts", "mts", "ts",
-        "qt", "yuv", "y4m"
+        "ogv",
+        "rm",
+        "rmvb",
+        "amv",
+        "divx",
+        "m2ts",
+        "mts",
+        "ts",
+        "qt",
+        "yuv",
+        "y4m",
     ]
 
     inputs = [
@@ -34,13 +56,35 @@ class VideoFileComponent(BaseFileComponent):
             name="file_path",
             file_types=[
                 # Common video formats
-                "mp4", "avi", "mov", "mkv", "webm", "flv", "wmv",
-                "mpg", "mpeg", "m4v", "3gp", "3g2", "m2v",
+                "mp4",
+                "avi",
+                "mov",
+                "mkv",
+                "webm",
+                "flv",
+                "wmv",
+                "mpg",
+                "mpeg",
+                "m4v",
+                "3gp",
+                "3g2",
+                "m2v",
                 # Professional video formats
-                "mxf", "dv", "vob",
+                "mxf",
+                "dv",
+                "vob",
                 # Additional video formats
-                "ogv", "rm", "rmvb", "amv", "divx", "m2ts", "mts", "ts",
-                "qt", "yuv", "y4m"
+                "ogv",
+                "rm",
+                "rmvb",
+                "amv",
+                "divx",
+                "m2ts",
+                "mts",
+                "ts",
+                "qt",
+                "yuv",
+                "y4m",
             ],
             required=True,
             info="Upload a video file in any common video format supported by ffmpeg",
@@ -77,13 +121,7 @@ class VideoFileComponent(BaseFileComponent):
                     raise ValueError(error_msg)
 
                 # Create a dictionary instead of a Document
-                doc_data = {
-                    "text": file_path,
-                    "metadata": {
-                        "source": file_path,
-                        "type": "video"
-                    }
-                }
+                doc_data = {"text": file_path, "metadata": {"source": file_path, "type": "video"}}
 
                 # Pass the dictionary to Data
                 file.data = Data(data=doc_data)
@@ -120,11 +158,7 @@ class VideoFileComponent(BaseFileComponent):
             # Create a proper Data object with the video path
             video_data = {
                 "text": self.file_path,
-                "metadata": {
-                    "source": self.file_path,
-                    "type": "video",
-                    "size": file_size
-                }
+                "metadata": {"source": self.file_path, "type": "video", "size": file_size},
             }
 
             self.log(f"DEBUG: Created video data: {video_data}")
