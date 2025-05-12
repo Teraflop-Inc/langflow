@@ -1,15 +1,18 @@
-from langflow.custom import Component
-from langflow.inputs import DataInput, SecretStrInput, MessageInput, MultilineInput, SliderInput, DropdownInput
-from langflow.io import Output
-from langflow.schema.message import Message
-from langflow.field_typing.range_spec import RangeSpec
-from typing import Dict, Any, Tuple, Optional, Union, List
-from twelvelabs import TwelveLabs
-import time
+import json
 import os
 import subprocess
-import json
+import time
+from typing import Any
+
 from tenacity import retry, stop_after_attempt, wait_exponential
+from twelvelabs import TwelveLabs
+
+from langflow.custom import Component
+from langflow.field_typing.range_spec import RangeSpec
+from langflow.inputs import DataInput, DropdownInput, MessageInput, MultilineInput, SecretStrInput, SliderInput
+from langflow.io import Output
+from langflow.schema.message import Message
+
 
 class TwelveLabsPegasus(Component):
     display_name = "Twelve Labs Pegasus"
@@ -20,8 +23,8 @@ class TwelveLabsPegasus(Component):
 
     inputs = [
         DataInput(
-            name="videodata", 
-            display_name="Video Data", 
+            name="videodata",
+            display_name="Video Data",
             info="Video Data",
             is_list=True
         ),
@@ -89,26 +92,25 @@ class TwelveLabsPegasus(Component):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self._task_id: Optional[str] = None
-        self._video_id: Optional[str] = None
-        self._index_id: Optional[str] = None
-        self._index_name: Optional[str] = None
-        self._message: Optional[str] = None
+        self._task_id: str | None = None
+        self._video_id: str | None = None
+        self._index_id: str | None = None
+        self._index_name: str | None = None
+        self._message: str | None = None
 
-    def _get_or_create_index(self, client: TwelveLabs) -> Tuple[str, str]:
-        """Get existing index or create new one. Returns (index_id, index_name)"""     
-
+    def _get_or_create_index(self, client: TwelveLabs) -> tuple[str, str]:
+        """Get existing index or create new one. Returns (index_id, index_name)"""
         # First check if index_id is provided and valid
-        if hasattr(self, '_index_id') and self._index_id:
+        if hasattr(self, "_index_id") and self._index_id:
             try:
                 index = client.index.retrieve(id=self._index_id)
                 self.log(f"Found existing index with ID: {self._index_id}")
                 return self._index_id, index.name
             except Exception as e:
-                self.log(f"Error retrieving index with ID {self._index_id}: {str(e)}", "WARNING")
+                self.log(f"Error retrieving index with ID {self._index_id}: {e!s}", "WARNING")
 
         # If index_name is provided, try to find it
-        if hasattr(self, '_index_name') and self._index_name:
+        if hasattr(self, "_index_name") and self._index_name:
             try:
                 # List all indexes and find by name
                 indexes = client.index.list()
@@ -116,21 +118,21 @@ class TwelveLabsPegasus(Component):
                     if idx.name == self._index_name:
                         self.log(f"Found existing index: {self._index_name} (ID: {idx.id})")
                         return idx.id, idx.name
-                
+
                 # If we get here, index wasn't found - create it
                 self.log(f"Creating new index: {self._index_name}")
                 index = client.index.create(
                     name=self._index_name,
                     models=[
                         {
-                            "name": self.model_name if hasattr(self, 'model_name') else "pegasus1.2",
+                            "name": self.model_name if hasattr(self, "model_name") else "pegasus1.2",
                             "options": ["visual","audio"]
                         }
                     ]
                 )
                 return index.id, index.name
             except Exception as e:
-                self.log(f"Error with index name {self._index_name}: {str(e)}", "ERROR")
+                self.log(f"Error with index name {self._index_name}: {e!s}", "ERROR")
                 raise
 
         # If neither is provided, create a new index with timestamp
@@ -141,14 +143,14 @@ class TwelveLabsPegasus(Component):
                 name=index_name,
                 models=[
                     {
-                        "name": self.model_name if hasattr(self, 'model_name') else "pegasus1.2",
+                        "name": self.model_name if hasattr(self, "model_name") else "pegasus1.2",
                         "options": ["visual","audio"]
                     }
                 ]
             )
             return index.id, index.name
         except Exception as e:
-            self.log(f"Failed to create new index: {str(e)}", "ERROR")
+            self.log(f"Failed to create new index: {e!s}", "ERROR")
             raise
 
     @retry(
@@ -161,102 +163,101 @@ class TwelveLabsPegasus(Component):
         try:
             return await method(*args, **kwargs)
         except Exception as e:
-            self.log(f"API request failed: {str(e)}", "ERROR")
+            self.log(f"API request failed: {e!s}", "ERROR")
             raise
 
     def wait_for_task_completion(
-        self, 
-        client: TwelveLabs, 
-        task_id: str, 
+        self,
+        client: TwelveLabs,
+        task_id: str,
         max_retries: int = 120,
         sleep_time: int = 5
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Wait for task completion with timeout and improved error handling"""
         retries = 0
         consecutive_errors = 0
         max_consecutive_errors = 3
-        
+
         while retries < max_retries:
             try:
-                self.log("Checking task status (attempt {})".format(retries + 1))
+                self.log(f"Checking task status (attempt {retries + 1})")
                 result = client.task.retrieve(id=task_id)
                 consecutive_errors = 0  # Reset error counter on success
-                
+
                 if result.status == "ready":
                     self.log("Task completed successfully!")
                     return result
-                elif result.status == "failed":
+                if result.status == "failed":
                     error_msg = f"Task failed with status: {result.status}"
                     self.log(error_msg, "ERROR")
                     raise Exception(error_msg)
-                elif result.status == "error":
+                if result.status == "error":
                     error_msg = f"Task encountered an error: {getattr(result, 'error', 'Unknown error')}"
                     self.log(error_msg, "ERROR")
                     raise Exception(error_msg)
-                
+
                 time.sleep(sleep_time)
                 retries += 1
                 status_msg = f"Processing video... {retries * sleep_time}s elapsed"
                 self.status = status_msg
                 self.log(status_msg)
-                
+
             except Exception as e:
                 consecutive_errors += 1
-                error_msg = f"Error checking task status: {str(e)}"
+                error_msg = f"Error checking task status: {e!s}"
                 self.log(error_msg, "WARNING")
-                
+
                 if consecutive_errors >= max_consecutive_errors:
                     raise Exception(f"Too many consecutive errors: {error_msg}")
-                
+
                 time.sleep(sleep_time * 2)
                 continue
-        
+
         timeout_msg = f"Timeout after {max_retries * sleep_time} seconds"
         self.log(timeout_msg, "ERROR")
         raise Exception(timeout_msg)
 
-    def validate_video_file(self, filepath: str) -> Tuple[bool, str]:
-        """
-        Validate video file using ffprobe.
+    def validate_video_file(self, filepath: str) -> tuple[bool, str]:
+        """Validate video file using ffprobe.
         Returns (is_valid, error_message)
         """
         try:
             cmd = [
-                'ffprobe',
-                '-loglevel', 'error',
-                '-show_entries', 'stream=codec_type,codec_name',
-                '-of', 'default=nw=1',
-                '-print_format', 'json',
-                '-show_format',
+                "ffprobe",
+                "-loglevel", "error",
+                "-show_entries", "stream=codec_type,codec_name",
+                "-of", "default=nw=1",
+                "-print_format", "json",
+                "-show_format",
                 filepath
             ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+
             if result.returncode != 0:
                 return False, f"FFprobe error: {result.stderr}"
-            
+
             probe_data = json.loads(result.stdout)
-            
+
             has_video = any(
-                stream.get('codec_type') == 'video' 
-                for stream in probe_data.get('streams', [])
+                stream.get("codec_type") == "video"
+                for stream in probe_data.get("streams", [])
             )
-            
+
             if not has_video:
                 return False, "No video stream found in file"
-                
+
             self.log(f"Video validation successful: {json.dumps(probe_data, indent=2)}")
             return True, ""
-            
-        except subprocess.SubprocessError as e:
-            return False, f"FFprobe process error: {str(e)}"
-        except json.JSONDecodeError as e:
-            return False, f"FFprobe output parsing error: {str(e)}"
-        except Exception as e:
-            return False, f"Validation error: {str(e)}"
 
-    def on_task_update(self, task: Dict[str, Any]) -> None:
+        except subprocess.SubprocessError as e:
+            return False, f"FFprobe process error: {e!s}"
+        except json.JSONDecodeError as e:
+            return False, f"FFprobe output parsing error: {e!s}"
+        except Exception as e:
+            return False, f"Validation error: {e!s}"
+
+    def on_task_update(self, task: dict[str, Any]) -> None:
         """Callback for task status updates"""
         self.status = f"Processing video... Status: {task['status']}"
         self.log(self.status)
@@ -264,28 +265,28 @@ class TwelveLabsPegasus(Component):
     def process_video(self) -> Message:
         """Process video using Pegasus and generate response if message is provided"""
         # Check and initialize inputs
-        if hasattr(self, 'index_id') and self.index_id:
-            self._index_id = self.index_id.text if hasattr(self.index_id, 'text') else self.index_id
+        if hasattr(self, "index_id") and self.index_id:
+            self._index_id = self.index_id.text if hasattr(self.index_id, "text") else self.index_id
 
-        if hasattr(self, 'index_name') and self.index_name:
-            self._index_name = self.index_name.text if hasattr(self.index_name, 'text') else self.index_name
+        if hasattr(self, "index_name") and self.index_name:
+            self._index_name = self.index_name.text if hasattr(self.index_name, "text") else self.index_name
 
-        if hasattr(self, 'video_id') and self.video_id:
-            self._video_id = self.video_id.text if hasattr(self.video_id, 'text') else self.video_id
+        if hasattr(self, "video_id") and self.video_id:
+            self._video_id = self.video_id.text if hasattr(self.video_id, "text") else self.video_id
 
-        if hasattr(self, 'message') and self.message:
-            self._message = self.message.text if hasattr(self.message, 'text') else self.message
+        if hasattr(self, "message") and self.message:
+            self._message = self.message.text if hasattr(self.message, "text") else self.message
 
         try:
             # If we have a message and already processed video, use existing video_id
             if self._message and self._video_id and self._video_id != "":
                 self.status = f"Have video id: {self._video_id}"
-                
+
                 client = TwelveLabs(api_key=self.api_key)
-                
+
                 self.status = f"Processing query (w/ video ID): {self._video_id} {self._message}"
                 self.log(self.status)
-                
+
                 response = client.generate.text(
                     video_id=self._video_id,
                     prompt=self._message,
@@ -297,7 +298,7 @@ class TwelveLabsPegasus(Component):
             if not self.videodata or not isinstance(self.videodata, list) or len(self.videodata) != 1:
                 return Message(text="Please provide exactly one video")
 
-            video_path = self.videodata[0].data.get('text')
+            video_path = self.videodata[0].data.get("text")
             if not video_path or not os.path.exists(video_path):
                 return Message(text="Invalid video path")
 
@@ -314,9 +315,9 @@ class TwelveLabsPegasus(Component):
                 self._index_id = index_id
                 self._index_name = index_name
             except Exception as e:
-                return Message(text=f"Failed to get/create index: {str(e)}")
+                return Message(text=f"Failed to get/create index: {e!s}")
 
-            with open(video_path, 'rb') as video_file:
+            with open(video_path, "rb") as video_file:
                 task = client.task.create(
                     index_id=self._index_id,
                     file=video_file
@@ -325,7 +326,7 @@ class TwelveLabsPegasus(Component):
 
             # Wait for processing to complete
             task.wait_for_done(sleep_interval=5, callback=self.on_task_update)
-            
+
             if task.status != "ready":
                 return Message(text=f"Processing failed with status {task.status}")
 
@@ -343,17 +344,16 @@ class TwelveLabsPegasus(Component):
                     temperature=self.temperature,
                 )
                 return Message(text=response.data)
-            else:
-                return Message(text=f"Video processed successfully. You can now ask questions about the video. Video ID: {self._video_id}")
+            return Message(text=f"Video processed successfully. You can now ask questions about the video. Video ID: {self._video_id}")
 
         except Exception as e:
-            self.log(f"Error: {str(e)}", "ERROR")
+            self.log(f"Error: {e!s}", "ERROR")
             # Clear stored IDs on error
             self._video_id = None
             self._index_id = None
             self._task_id = None
-            return Message(text=f"Error: {str(e)}")
-            
+            return Message(text=f"Error: {e!s}")
+
     def get_video_id(self) -> Message:
         """Return the video ID of the processed video as a Message"""
         video_id = self._video_id or ""

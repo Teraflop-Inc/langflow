@@ -1,17 +1,18 @@
 from langflow.custom import Component
-from langflow.schema import Data
 from langflow.io import HandleInput, Output
+from langflow.schema import Data
 from langflow.schema.message import Message
+
 
 class ConvertAstraToTwelveLabs(Component):
     """Convert AstraDB search results to TwelveLabs Pegasus inputs."""
-    
+
     display_name = "Convert AstraDB to Pegasus Input"
     description = "Converts AstraDB search results to inputs compatible with TwelveLabs Pegasus."
     icon = "TwelveLabs"
     name = "ConvertAstraToTwelveLabs"
     documentation = "https://github.com/twelvelabs-io/twelvelabs-developer-experience/blob/main/integrations/Langflow/TWELVE_LABS_COMPONENTS_README.md"
-    
+
     inputs = [
         HandleInput(
             name="astra_results",
@@ -22,7 +23,7 @@ class ConvertAstraToTwelveLabs(Component):
             is_list=True
         )
     ]
-    
+
     outputs = [
         Output(
             name="index_id",
@@ -42,20 +43,20 @@ class ConvertAstraToTwelveLabs(Component):
         super().__init__(**kwargs)
         self._video_id = None
         self._index_id = None
-        
+
     def build(self, **kwargs) -> None:
         """Process the AstraDB results and extract TwelveLabs index information."""
         if not self.astra_results:
             return
-            
+
         # Convert to list if single item
         results = self.astra_results if isinstance(self.astra_results, list) else [self.astra_results]
-        
+
         # Try to extract index information from metadata
         for doc in results:
             if not isinstance(doc, Data):
                 continue
-                
+
             # Get the metadata, handling the nested structure
             metadata = {}
             if hasattr(doc, "metadata"):
@@ -65,11 +66,11 @@ class ConvertAstraToTwelveLabs(Component):
                         metadata = doc.metadata["metadata"]
                     else:
                         metadata = doc.metadata
-            
+
             # Extract index_id and video_id
             self._index_id = metadata.get("index_id")
             self._video_id = metadata.get("video_id")
-            
+
             # If we found both, we can stop searching
             if self._index_id and self._video_id:
                 break
@@ -78,7 +79,7 @@ class ConvertAstraToTwelveLabs(Component):
         """Return the extracted video ID as a Message."""
         self.build()
         return Message(text=self._video_id if self._video_id else "")
-        
+
     def get_index_id(self) -> Message:
         """Return the extracted index ID as a Message."""
         self.build()

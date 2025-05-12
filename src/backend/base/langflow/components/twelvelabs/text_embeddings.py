@@ -1,21 +1,22 @@
+
+from twelvelabs import TwelveLabs
+
 from langflow.base.embeddings.model import LCEmbeddingsModel
-from langflow.base.models.openai_constants import OPENAI_EMBEDDING_MODEL_NAMES
 from langflow.field_typing import Embeddings
 from langflow.io import DropdownInput, FloatInput, IntInput, SecretStrInput
-from twelvelabs import TwelveLabs
-from typing import List, Any, Dict, Optional
+
 
 class TwelveLabsTextEmbeddings(Embeddings):
     def __init__(self, api_key: str, model: str) -> None:
         self.client = TwelveLabs(api_key=api_key)
         self.model = model
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        all_embeddings: List[List[float]] = []
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        all_embeddings: list[list[float]] = []
         for text in texts:
             if not text:
                 continue
-                
+
             result = self.client.embed.create(
                 model_name=self.model,
                 text=text
@@ -25,15 +26,15 @@ class TwelveLabsTextEmbeddings(Embeddings):
                 for segment in result.text_embedding.segments:
                     all_embeddings.append([float(x) for x in segment.embeddings_float])
                     break  # Only take first segment for now
-                    
+
         return all_embeddings
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         result = self.client.embed.create(
             model_name=self.model,
             text=text
         )
-        
+
         if result.text_embedding and result.text_embedding.segments:
             return [float(x) for x in result.text_embedding.segments[0].embeddings_float]
         return []
