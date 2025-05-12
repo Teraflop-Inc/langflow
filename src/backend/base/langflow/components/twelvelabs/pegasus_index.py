@@ -128,13 +128,13 @@ class PegasusIndexVideo(Component):
         error_msg = "Either index_name or index_id must be provided"
         raise IndexCreationError(error_msg)
 
-    def on_task_update(self, task: dict[str, Any], video_path: str) -> None:
+    def on_task_update(self, task: Any, video_path: str) -> None:
         """Callback for task status updates.
 
         Updates the component status with the current task status.
         """
         video_name = Path(video_path).name
-        status_msg = f"Indexing {video_name}... Status: {task['status']}"
+        status_msg = f"Indexing {video_name}... Status: {task.status}"
         self.status = status_msg
 
     @retry(
@@ -147,7 +147,7 @@ class PegasusIndexVideo(Component):
         client: TwelveLabs,
         task_id: str,
         video_path: str,
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Check task status once.
 
         Makes a single API call to check the status of a task.
@@ -163,7 +163,7 @@ class PegasusIndexVideo(Component):
         video_path: str,
         max_retries: int = 120,
         sleep_time: int = 10
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Wait for task completion with timeout and improved error handling.
 
         Polls the task status until completion or timeout.
@@ -178,17 +178,17 @@ class PegasusIndexVideo(Component):
                 self.status = f"Checking task status for {video_name} (attempt {retries + 1})"
                 task = self._check_task_status(client, task_id, video_path)
 
-                if task["status"] == "ready":
+                if task.status == "ready":
                     self.status = f"Indexing for {video_name} completed successfully!"
                     return task
-                if task["status"] == "failed":
-                    error_msg = f"Task failed for {video_name}: {task.get('error', 'Unknown error')}"
+                if task.status == "failed":
+                    error_msg = f"Task failed for {video_name}: {getattr(task, 'error', 'Unknown error')}"
                     self.status = error_msg
                     raise TaskError(error_msg)
-                if task["status"] == "error":
+                if task.status == "error":
                     error_msg = (
                         f"Task encountered an error for {video_name}: "
-                        f"{task.get('error', 'Unknown error')}"
+                        f"{getattr(task, 'error', 'Unknown error')}"
                     )
                     self.status = error_msg
                     raise TaskError(error_msg)
@@ -308,8 +308,8 @@ class PegasusIndexVideo(Component):
             for data_item, video_path, future in futures:
                 try:
                     completed_task = future.result()
-                    if completed_task["status"] == "ready":
-                        video_id = completed_task["video_id"]
+                    if completed_task.status == "ready":
+                        video_id = completed_task.video_id
                         video_name = Path(video_path).name
                         self.status = f"Video {video_name} indexed successfully. Video ID: {video_id}"
 
