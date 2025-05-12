@@ -44,7 +44,7 @@ class ConvertAstraToTwelveLabs(Component):
         self._video_id = None
         self._index_id = None
 
-    def build(self, **kwargs) -> None:
+    def build(self) -> None:
         """Process the AstraDB results and extract TwelveLabs index information."""
         if not self.astra_results:
             return
@@ -59,13 +59,9 @@ class ConvertAstraToTwelveLabs(Component):
 
             # Get the metadata, handling the nested structure
             metadata = {}
-            if hasattr(doc, "metadata"):
-                if isinstance(doc.metadata, dict):
-                    # Handle nested metadata
-                    if "metadata" in doc.metadata:
-                        metadata = doc.metadata["metadata"]
-                    else:
-                        metadata = doc.metadata
+            if hasattr(doc, "metadata") and isinstance(doc.metadata, dict):
+                # Handle nested metadata using .get() method
+                metadata = doc.metadata.get("metadata", doc.metadata)
 
             # Extract index_id and video_id
             self._index_id = metadata.get("index_id")
