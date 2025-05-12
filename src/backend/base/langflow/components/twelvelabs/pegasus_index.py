@@ -1,6 +1,6 @@
-import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -10,6 +10,22 @@ from langflow.custom import Component
 from langflow.inputs import DataInput, DropdownInput, SecretStrInput, StrInput
 from langflow.io import Output
 from langflow.schema import Data
+
+
+class TwelveLabsError(Exception):
+    """Base exception for Twelve Labs errors."""
+
+
+class IndexCreationError(TwelveLabsError):
+    """Error raised when there's an issue with an index."""
+
+
+class TaskError(TwelveLabsError):
+    """Error raised when a task fails."""
+
+
+class TaskTimeoutError(TwelveLabsError):
+    """Error raised when a task times out."""
 
 
 class PegasusIndexVideo(Component):
@@ -68,15 +84,20 @@ class PegasusIndexVideo(Component):
     ]
 
     def _get_or_create_index(self, client: TwelveLabs) -> tuple[str, str]:
-        """Get existing index or create new one. Returns (index_id, index_name)"""
+        """Get existing index or create new one.
+
+        Returns (index_id, index_name).
+        """
         # First check if index_id is provided and valid
         if hasattr(self, "index_id") and self.index_id:
             try:
                 index = client.index.retrieve(id=self.index_id)
-                return self.index_id, index.name
-            except Exception:
+            except (ValueError, KeyError) as e:
                 if not hasattr(self, "index_name") or not self.index_name:
-                    raise ValueError("Invalid index ID provided and no index name specified for fallback.")
+                    error_msg = "Invalid index ID provided and no index name specified for fallback"
+                    raise IndexCreationError(error_msg) from e
+            else:
+                return self.index_id, index.name
 
         # If index_name is provided, try to find it
         if hasattr(self, "index_name") and self.index_name:
@@ -97,16 +118,23 @@ class PegasusIndexVideo(Component):
                         }
                     ]
                 )
+            except (ValueError, KeyError) as e:
+                error_msg = f"Error with index name {self.index_name}"
+                raise IndexCreationError(error_msg) from e
+            else:
                 return index.id, index.name
-            except Exception:
-                raise
 
         # If we get here, neither index_id nor index_name was provided
-        raise ValueError("Either index_name or index_id must be provided")
+        error_msg = "Either index_name or index_id must be provided"
+        raise IndexCreationError(error_msg)
 
     def on_task_update(self, task: dict[str, Any], video_path: str) -> None:
-        """Callback for task status updates"""
-        status_msg = f"Indexing {os.path.basename(video_path)}... Status: {task['status']}"
+        """Callback for task status updates.
+
+        Updates the component status with the current task status.
+        """
+        video_name = Path(video_path).name
+        status_msg = f"Indexing {video_name}... Status: {task['status']}"
         self.status = status_msg
 
     @retry(
@@ -120,7 +148,10 @@ class PegasusIndexVideo(Component):
         task_id: str,
         video_path: str,
     ) -> dict[str, Any]:
-        """Check task status once"""
+        """Check task status once.
+
+        Makes a single API call to check the status of a task.
+        """
         task = client.task.retrieve(id=task_id)
         self.on_task_update(task, video_path)
         return task
@@ -133,58 +164,70 @@ class PegasusIndexVideo(Component):
         max_retries: int = 120,
         sleep_time: int = 10
     ) -> dict[str, Any]:
-        """Wait for task completion with timeout and improved error handling"""
+        """Wait for task completion with timeout and improved error handling.
+
+        Polls the task status until completion or timeout.
+        """
         retries = 0
         consecutive_errors = 0
         max_consecutive_errors = 5
+        video_name = Path(video_path).name
 
         while retries < max_retries:
             try:
-                self.status = f"Checking task status for {os.path.basename(video_path)} (attempt {retries + 1})"
+                self.status = f"Checking task status for {video_name} (attempt {retries + 1})"
                 task = self._check_task_status(client, task_id, video_path)
 
                 if task["status"] == "ready":
-                    self.status = f"Indexing for {os.path.basename(video_path)} completed successfully!"
+                    self.status = f"Indexing for {video_name} completed successfully!"
                     return task
                 if task["status"] == "failed":
-                    error_msg = f"Task failed for {os.path.basename(video_path)}: {task.get('error', 'Unknown error')}"
+                    error_msg = f"Task failed for {video_name}: {task.get('error', 'Unknown error')}"
                     self.status = error_msg
-                    raise Exception(error_msg)
+                    raise TaskError(error_msg)
                 if task["status"] == "error":
-                    error_msg = f"Task encountered an error for {os.path.basename(video_path)}: {task.get('error', 'Unknown error')}"
+                    error_msg = (
+                        f"Task encountered an error for {video_name}: "
+                        f"{task.get('error', 'Unknown error')}"
+                    )
                     self.status = error_msg
-                    raise Exception(error_msg)
+                    raise TaskError(error_msg)
 
                 time.sleep(sleep_time)
                 retries += 1
                 elapsed_time = retries * sleep_time
-                self.status = f"Indexing {os.path.basename(video_path)}... {elapsed_time}s elapsed"
+                self.status = f"Indexing {video_name}... {elapsed_time}s elapsed"
 
-            except Exception as e:
+            except (ValueError, KeyError) as e:
                 consecutive_errors += 1
-                error_msg = f"Error checking task status for {os.path.basename(video_path)}: {e!s}"
+                error_msg = f"Error checking task status for {video_name}: {e!s}"
                 self.status = error_msg
 
                 if consecutive_errors >= max_consecutive_errors:
-                    raise Exception(f"Too many consecutive errors checking task status for {os.path.basename(video_path)}: {error_msg}")
+                    too_many_errors = f"Too many consecutive errors checking task status for {video_name}"
+                    raise TaskError(too_many_errors) from e
 
                 time.sleep(sleep_time * (2 ** consecutive_errors))
                 continue
 
-        timeout_msg = f"Timeout waiting for indexing of {os.path.basename(video_path)} after {max_retries * sleep_time} seconds"
+        timeout_msg = f"Timeout waiting for indexing of {video_name} after {max_retries * sleep_time} seconds"
         self.status = timeout_msg
-        raise TimeoutError(timeout_msg)
+        raise TaskTimeoutError(timeout_msg)
 
     def _upload_video(self, client: TwelveLabs, video_path: str, index_id: str) -> str:
-        """Upload a single video and return its task ID"""
-        with open(video_path, "rb") as video_file:
-            self.status = f"Uploading {os.path.basename(video_path)} to index {index_id}..."
+        """Upload a single video and return its task ID.
+
+        Uploads a video file to the specified index and returns the task ID.
+        """
+        video_name = Path(video_path).name
+        with Path(video_path).open("rb") as video_file:
+            self.status = f"Uploading {video_name} to index {index_id}..."
             task = client.task.create(
                 index_id=index_id,
                 file=video_file
             )
             task_id = task.id
-            self.status = f"Upload complete for {os.path.basename(video_path)}. Task ID: {task_id}"
+            self.status = f"Upload complete for {video_name}. Task ID: {task_id}"
             return task_id
 
     def index_videos(self) -> list[Data]:
@@ -194,10 +237,12 @@ class PegasusIndexVideo(Component):
             return []
 
         if not self.api_key:
-            raise ValueError("Twelve Labs API Key is required.")
+            error_msg = "Twelve Labs API Key is required"
+            raise IndexCreationError(error_msg)
 
         if not (hasattr(self, "index_name") and self.index_name) and not (hasattr(self, "index_id") and self.index_id):
-            raise ValueError("Either index_name or index_id must be provided")
+            error_msg = "Either index_name or index_id must be provided"
+            raise IndexCreationError(error_msg)
 
         client = TwelveLabs(api_key=self.api_key)
         indexed_data_list: list[Data] = []
@@ -206,7 +251,7 @@ class PegasusIndexVideo(Component):
         try:
             index_id, index_name = self._get_or_create_index(client)
             self.status = f"Using index: {index_name} (ID: {index_id})"
-        except Exception as e:
+        except IndexCreationError as e:
             self.status = f"Failed to get/create Twelve Labs index: {e!s}"
             raise
 
@@ -227,7 +272,7 @@ class PegasusIndexVideo(Component):
                 self.status = f"Skipping item with missing or invalid video path: {video_info}"
                 continue
 
-            if not os.path.exists(video_path):
+            if not Path(video_path).exists():
                 self.status = f"Video file not found, skipping: {video_path}"
                 continue
 
@@ -243,7 +288,7 @@ class PegasusIndexVideo(Component):
             try:
                 task_id = self._upload_video(client, video_path, index_id)
                 upload_tasks.append((data_item, video_path, task_id))
-            except Exception as e:
+            except (ValueError, KeyError) as e:
                 self.status = f"Failed to upload {video_path}: {e!s}"
                 continue
 
@@ -265,7 +310,8 @@ class PegasusIndexVideo(Component):
                     completed_task = future.result()
                     if completed_task["status"] == "ready":
                         video_id = completed_task["video_id"]
-                        self.status = f"Video {os.path.basename(video_path)} indexed successfully. Video ID: {video_id}"
+                        video_name = Path(video_path).name
+                        self.status = f"Video {video_name} indexed successfully. Video ID: {video_id}"
 
                         # Add video_id to the metadata
                         video_info = data_item.data
@@ -283,7 +329,7 @@ class PegasusIndexVideo(Component):
 
                         updated_data_item = Data(data=video_info)
                         indexed_data_list.append(updated_data_item)
-                except Exception as e:
+                except (TaskError, TaskTimeoutError) as e:
                     self.status = f"Failed to process {video_path}: {e!s}"
 
         if not indexed_data_list:
