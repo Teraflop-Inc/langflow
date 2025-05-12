@@ -207,7 +207,7 @@ class TwelveLabsPegasus(Component):
         task_id: str,
         max_retries: int = 120,
         sleep_time: int = 5
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Wait for task completion with timeout and improved error handling.
 
         Polls the task status until completion or timeout.
@@ -310,12 +310,12 @@ class TwelveLabsPegasus(Component):
         else:
             return True, ""
 
-    def on_task_update(self, task: dict[str, Any]) -> None:
+    def on_task_update(self, task: Any) -> None:
         """Callback for task status updates.
 
         Updates the component status with the current task status.
         """
-        self.status = f"Processing video... Status: {task['status']}"
+        self.status = f"Processing video... Status: {task.status}"
         self.log(self.status)
 
     def process_video(self) -> Message:
