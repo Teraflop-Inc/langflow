@@ -126,6 +126,7 @@ dependencies = [
     "docling_core>=2.36.1",
     "filelock>=3.18.0",
     "jigsawstack==0.2.7",
+    "vlmrun[all]>=0.2.0",
 ]
 
 [dependency-groups]
@@ -200,6 +201,7 @@ docling = [
 audio = [
     "webrtcvad>=2.0.10",
 ]
+
 
 couchbase = [
     "couchbase>=4.2.1"
